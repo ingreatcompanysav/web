@@ -1,29 +1,43 @@
 # In Great Company — static site
 
-`index.html` is the whole site: one self-contained file with fonts, logos, styles and scripts inlined. No build step.
+Three files, no build step.
 
-## Deploy to Cloudflare Pages (via GitHub)
+| File | What it is |
+| --- | --- |
+| `index.html` | The whole site. Fonts, logos, styles and scripts inlined. |
+| `events.json` | The gatherings calendar. The site fetches this at load. |
+| `admin.html` | Editor for `events.json`. **Gitignored — runs locally, never deployed.** |
 
-1. Commit `index.html` to the root of `ingreatcompanysav/web` on `main`.
-2. Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git → pick the repo.
-3. Build settings: **Framework preset: None**, **Build command: (leave empty)**, **Output directory: /**.
-4. Save and Deploy. Live in ~30s at `web-xxx.pages.dev`.
-5. Custom domain: Pages → project → Custom domains → add `ingreatcompany.co`. Register through Cloudflare Registrar (at-cost, ~$10-15/yr). SSL is automatic.
+## Deploy to Cloudflare (via GitHub)
 
-Every push to `main` redeploys. Previous deployments stay as one-click rollbacks.
+1. Commit `index.html`, `events.json` and `.gitignore` to the root of `ingreatcompanysav/web` on `main`. (`admin.html` is gitignored on purpose — keep it locally.)
+2. Cloudflare dashboard → Workers & Pages → your project → it redeploys on every push.
+3. If the `workers.dev` URL shows "No URLs enabled": project → Settings → Domains & Routes → enable it.
+4. Custom domain: Settings → Domains & Routes → add `ingreatcompany.co`. Register through Cloudflare Registrar (at cost, ~$10–15/yr). SSL is automatic.
+
+Previous deployments stay as one-click rollbacks.
+
+## Updating the calendar
+
+1. Open your local `admin.html` (double-click it — keep a copy of `events.json` in the same folder so it loads the current calendar).
+2. Edit, add, reorder, remove gatherings.
+3. **Download events.json**.
+4. GitHub → `ingreatcompanysav/web` → Add file → Upload files → drop `events.json` in → Commit.
+5. Cloudflare redeploys within a minute.
+
+The admin page saves nothing on its own — it only produces the file. That is deliberate: no login, no database, nothing to break or get hacked.
+
+**It stays off the internet.** `.gitignore` keeps `admin.html` out of the repo, so it can never be deployed by accident. If you later want it live for a second editor, remove that line and gate the URL with Cloudflare Access (Zero Trust → Access → Applications → path `admin.html` → allow specific emails, one-time PIN). Free up to 50 users.
 
 ## Selling tickets
 
-Cloudflare only serves the page — it cannot take money.
-
-1. Stripe dashboard → Payment Links → create one per paid gathering (name, price, quantity limit).
+1. Stripe dashboard → Payment Links → create one per paid gathering (name, price, quantity cap = number of seats).
 2. Copy the link URL.
-3. In `index.html`, find the event's "Get my ticket" button and point it at that URL.
+3. In `admin.html`, paste it into that gathering's **Stripe payment link** field.
+4. Download, commit. "Get my ticket" now opens Stripe checkout.
 
-Stripe takes ~2.9% + 30¢ per ticket and pays out to the group's bank account. Free gatherings can point at a Tally or Google Form instead.
+Stripe takes ~2.9% + 30¢ per ticket and pays out to the group's bank account. Gatherings with a price of 0 and no link just confirm the seat on the page.
 
-## Editing content
+## Photos
 
-Event details, quotes and copy live near the top of the inlined script in a `DATA` array — each gathering has `title`, `date`, `time`, `place`, `price`, `blurb` and `detail`. Change the text, commit, done.
-
-Photos are placeholders describing the shot needed. Replace each with an `<img>` once real photography exists.
+Every image is a placeholder describing the shot needed. In `events.json`, the `note` field accepts an image URL instead of a description — put photos in the repo (e.g. `/photos/dinner.jpg`) and reference them there.
