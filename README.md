@@ -19,13 +19,14 @@ Previous deployments stay as one-click rollbacks.
 
 ## Updating the calendar
 
-1. Open your local `admin.html` (double-click it — keep a copy of `events.json` in the same folder so it loads the current calendar).
-2. Edit, add, reorder, remove gatherings.
-3. **Download events.json**.
-4. GitHub → `ingreatcompanysav/web` → Add file → Upload files → drop `events.json` in → Commit.
+1. Double-click **`start-admin.command`** (also gitignored, local-only). It serves this folder locally and opens the editor with your current `events.json` already loaded. Leave the little Terminal window open while you work; close it when done. (First run: right-click → Open to get past the macOS "unidentified developer" prompt.)
+   - Or, from a terminal: `python3 -m http.server 8787` in this folder, then visit `http://localhost:8787/admin.html`.
+2. Edit, add, reorder, remove gatherings. Pick dates/times from the calendar and clock controls; the ID fills in automatically from the title. The editor flags missing titles/IDs, duplicate IDs, and paid gatherings with no Stripe link before you upload.
+3. Click **Save to events.json**. In Chrome/Edge (and the launcher's browser) the first save asks permission once, then writes straight back to `events.json` in this folder — no download step. (On Safari/Firefox the button falls back to **Download copy**, which lands in Downloads; move it into this folder.)
+4. GitHub → `ingreatcompanysav/web` → Add file → Upload files → drop `events.json` in → Commit. (Or, if you use git locally, just commit and push the file the editor saved.)
 5. Cloudflare redeploys within a minute.
 
-The admin page saves nothing on its own — it only produces the file. That is deliberate: no login, no database, nothing to break or get hacked.
+The admin page has no login and no database of its own — it only reads and writes the one `events.json` file on your machine. That is deliberate: nothing to break or get hacked, and it's kept out of the repo so it never deploys.
 
 **It stays off the internet.** `.gitignore` keeps `admin.html` out of the repo, so it can never be deployed by accident. If you later want it live for a second editor, remove that line and gate the URL with Cloudflare Access (Zero Trust → Access → Applications → path `admin.html` → allow specific emails, one-time PIN). Free up to 50 users.
 
