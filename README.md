@@ -7,6 +7,13 @@ Three files, no build step.
 | `index.html` | The whole site. Fonts, logos, styles and scripts inlined. |
 | `events.json` | The gatherings calendar. The site fetches this at load. |
 | `admin.html` | Editor for `events.json`. **Gitignored — runs locally, never deployed.** |
+| `start-admin.command` | Double-click launcher for the editor. **Gitignored — local only.** |
+
+## About `index.html` (heads up before editing it)
+
+`index.html` is not hand-written HTML — it's a **compiled bundle**: the real page (markup + styles) lives in a JSON `<script type="__bundler/template">` blob on line 384, and fonts/images live in a manifest blob on line 372. A script in the file reassembles the page in the browser. So you can't just edit the visible HTML.
+
+Two things have been hand-patched into that bundle: a **mobile-responsive `<style>` block** (a `@media (max-width: 820px)` rule near the end of the last `<style>` — search for "Mobile responsiveness") and the **removal of the "Behind the site" nav item + section**. If you need to change the site's copy or images, that's a careful bundle edit — ask and it can be done (or the site can be rebuilt as plain HTML for easier upkeep).
 
 ## Deploy to Cloudflare (via GitHub)
 
