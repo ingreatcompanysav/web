@@ -1,0 +1,8 @@
+# The admin editor runs locally only — never deploy it.
+admin.html
+
+# OS cruft
+.DS_Store
+
+# Local launcher — never deploy
+start-admin.command
