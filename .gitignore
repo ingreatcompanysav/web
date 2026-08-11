@@ -1,8 +1,13 @@
-# The admin editor runs locally only — never deploy it.
-admin.html
+# admin.html is now deployed (gated by Cloudflare Access) — it must NOT be ignored.
 
 # OS cruft
 .DS_Store
 
-# Local launcher — never deploy
+# Local launcher — never deployed (the local editor is retired; kept for reference)
 start-admin.command
+
+# Local dev secrets for `wrangler pages dev` — never commit
+.dev.vars
+
+# Wrangler local state (local D1 sqlite, caches)
+.wrangler/
