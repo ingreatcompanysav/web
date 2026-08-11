@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>In Great Company — Admin</title>
+<style>
+  /* Brand palette pulled from index.html */
+  :root{
+    --ink:#0A4247; --ink-2:#0F5257; --brown:#33190A;
+    --cream:#FFFAF0; --cream-2:#FFFDF8; --paper:#FBF6F2;
+    --rose:#EF2E9F; --rose-100:#FDE4F2; --rose-700:#A3186A;
+    --cyan:#3CDFE2; --cyan-100:#E3FBFB; --cyan-800:#116769;
+    --gold:#EFD61A; --gold-100:#FDF8D6; --gold-800:#8a6d0a;
+    --line:rgba(10,66,71,.15);
+    --shadow:0 1px 2px rgba(10,66,71,.06),0 8px 24px rgba(10,66,71,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:0 0 130px;
+  }
+  h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:600;color:var(--ink);margin:0}
+  a{color:var(--rose-700)}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
+
+  header{background:var(--ink);color:var(--cream);padding:22px 0;margin-bottom:0}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  header h1{color:var(--cream);font-size:24px}
+  header .sub{opacity:.8;font-size:13px;margin-top:4px}
+  header code{background:rgba(255,250,240,.15);color:var(--cream);padding:1px 5px;border-radius:5px}
+  .pill{display:inline-block;background:rgba(255,250,240,.15);border:1px solid rgba(255,250,240,.3);
+    color:var(--cream);font-size:12px;padding:3px 10px;border-radius:999px}
+
+  /* Tabs */
+  .tabs{background:var(--ink-2);border-bottom:1px solid rgba(255,250,240,.15)}
+  .tabs .wrap{display:flex;gap:4px}
+  .tab{background:transparent;border:0;color:rgba(255,250,240,.7);font:inherit;font-size:15px;
+    padding:14px 18px;cursor:pointer;border-bottom:3px solid transparent}
+  .tab:hover{color:var(--cream)}
+  .tab.active{color:var(--cream);border-bottom-color:var(--rose);font-weight:600}
+  .panel{display:none;padding-top:24px}
+  .panel.active{display:block}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+  .status{font-size:13px;color:var(--ink-2);min-height:20px}
+  .status.warn{color:var(--rose-700)}
+  .status.ok{color:var(--cyan-800)}
+  .grow{flex:1 1 auto}
+
+  button{font:inherit;font-size:14px;cursor:pointer;border-radius:10px;
+    border:1px solid var(--line);background:var(--cream-2);color:var(--ink);padding:9px 14px;transition:.12s}
+  button:hover{background:#fff;box-shadow:var(--shadow)}
+  button.primary{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+  button.primary:hover{background:var(--ink-2)}
+  button.rose{background:var(--rose);color:#fff;border-color:var(--rose)}
+  button.rose:hover{background:var(--rose-700)}
+  button.ghost{background:transparent}
+  button.icon{padding:6px 10px;font-size:13px}
+  button.mini{padding:6px 10px;font-size:12.5px;white-space:nowrap}
+  button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+
+  .card{background:var(--cream-2);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+  .card.tone-rose{border-left:6px solid var(--rose)}
+  .card.tone-cyan{border-left:6px solid var(--cyan)}
+  .card.tone-gold{border-left:6px solid var(--gold)}
+  .card.tone-cream{border-left:6px solid var(--gold-100)}
+  .card.tone-deep{border-left:6px solid var(--ink)}
+  .card.inactive{opacity:.6}
+  .card.has-error{border-left-color:var(--rose)!important}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 18px;background:var(--paper);border-bottom:1px solid var(--line);cursor:pointer}
+  .card-head .title{font-family:Georgia,serif;font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .card-head .meta{font-size:13px;color:var(--ink-2)}
+  .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .badge.err{background:var(--rose-100);color:var(--rose-700)}
+  .badge.warnb{background:var(--gold-100);color:var(--gold-800)}
+  .badge.off{background:rgba(10,66,71,.1);color:var(--ink-2)}
+  .card-head .controls{display:flex;gap:6px;align-items:center}
+  .card-body{padding:18px;display:none;grid-template-columns:1fr 1fr;gap:14px 18px}
+  .card.open .card-body{display:grid}
+  .card.open .card-head .chev{transform:rotate(90deg)}
+  .chev{transition:.15s;display:inline-block;color:var(--ink-2)}
+
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field.full{grid-column:1 / -1}
+  label{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ink-2);text-transform:uppercase}
+  label .req{color:var(--rose)}
+  label .hint{font-weight:400;text-transform:none;letter-spacing:0;color:#8a9a9a;margin-left:6px}
+  input,textarea,select{font:inherit;font-size:15px;color:var(--ink);
+    border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fff;width:100%}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--cyan);outline-offset:0;border-color:var(--cyan)}
+  input.err{border-color:var(--rose);outline-color:var(--rose)}
+  textarea{resize:vertical;min-height:64px}
+  .row{display:flex;gap:8px;align-items:center}
+  .row input[type=date],.row input[type=time]{max-width:180px;flex:0 0 auto}
+  .row input[type=text]{flex:1 1 auto}
+  .checkrow{display:flex;align-items:center;gap:8px}
+  .checkrow input{width:auto}
+  .checkrow label{text-transform:none;font-size:14px;color:var(--ink)}
+  .field-msg{font-size:12px;min-height:0}
+  .field-msg.err{color:var(--rose-700)}
+  .field-msg.warn{color:var(--gold-800)}
+  .charcount{font-size:11px;color:#9aa;text-align:right}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--ink-2);
+    border:2px dashed var(--line);border-radius:16px;background:var(--cream-2)}
+  .empty h2{margin-bottom:8px}
+
+  /* RSVP table */
+  .rsvp-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+  .rsvp-controls select{max-width:280px}
+  table.rsvps{width:100%;border-collapse:collapse;background:var(--cream-2);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+  table.rsvps th,table.rsvps td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+  table.rsvps th{background:var(--paper);font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-2)}
+  table.rsvps tr:last-child td{border-bottom:0}
+  .sync{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px}
+  .sync.yes{background:var(--cyan-100);color:var(--cyan-800)}
+  .sync.no{background:var(--gold-100);color:var(--gold-800)}
+
+  .savebar{position:fixed;left:0;right:0;bottom:0;background:var(--ink);color:var(--cream);
+    box-shadow:0 -6px 24px rgba(10,66,71,.18);z-index:20}
+  .savebar .wrap{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 20px;flex-wrap:wrap}
+  .savebar .info{font-size:13px;opacity:.95}
+  .savebar .info b{opacity:1}
+  .savebar .warnc{color:var(--gold)}
+  .savebar .actions{display:flex;gap:10px;flex-wrap:wrap}
+  .savebar button.ghost{color:var(--cream);border-color:rgba(255,250,240,.4)}
+  .savebar button.ghost:hover{background:rgba(255,250,240,.12);box-shadow:none}
+
+  details.help{margin:0 0 22px;font-size:14px;color:var(--ink-2)}
+  details.help summary{cursor:pointer;font-weight:600;color:var(--ink)}
+  details.help ol{margin:10px 0 0;padding-left:20px}
+  details.help li{margin:4px 0}
+  code{background:var(--gold-100);padding:1px 5px;border-radius:5px;font-size:.9em}
+
+  @media(max-width:640px){ .card-body{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div>
+      <h1>In Great Company — Admin</h1>
+      <div class="sub">Gatherings, quotes &amp; RSVPs</div>
+    </div>
+    <span class="pill" id="whoami">Secured by Cloudflare Access</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="wrap">
+    <button class="tab active" data-tab="events">Gatherings</button>
+    <button class="tab" data-tab="quotes">Quotes</button>
+    <button class="tab" data-tab="rsvps">RSVPs</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ EVENTS ============ -->
+  <section class="panel active" id="panel-events">
+    <details class="help">
+      <summary>How this works</summary>
+      <ol>
+        <li>Edit, add, reorder, or remove gatherings. Pick dates and times from the calendar/clock — the ID fills in automatically.</li>
+        <li>Changes live only in this page until you click <b>Save changes</b>, which writes them to the live site's database.</li>
+        <li>The public site updates immediately — no GitHub upload, no redeploy.</li>
+      </ol>
+    </details>
+    <div class="toolbar">
+      <button id="addEventBtn">+ Add gathering</button>
+      <button class="ghost" id="collapseEventsBtn">Collapse all</button>
+      <button class="ghost" id="reloadEventsBtn">Reload from site</button>
+      <span class="status grow" id="eventsStatus"></span>
+    </div>
+    <div id="eventsList"></div>
+  </section>
+
+  <!-- ============ QUOTES ============ -->
+  <section class="panel" id="panel-quotes">
+    <details class="help">
+      <summary>How this works</summary>
+      <ol>
+        <li>These are the member quotes the site shows. The home page picks a few <b>at random</b> from this pool on each visit, so add as many as you like.</li>
+        <li>Turn a quote <b>off</b> to keep it in the list but hide it from the site.</li>
+        <li>Click <b>Save changes</b> to publish.</li>
+      </ol>
+    </details>
+    <div class="toolbar">
+      <button id="addQuoteBtn">+ Add quote</button>
+      <button class="ghost" id="collapseQuotesBtn">Collapse all</button>
+      <button class="ghost" id="reloadQuotesBtn">Reload from site</button>
+      <span class="status grow" id="quotesStatus"></span>
+    </div>
+    <div id="quotesList"></div>
+  </section>
+
+  <!-- ============ RSVPS ============ -->
+  <section class="panel" id="panel-rsvps">
+    <details class="help">
+      <summary>How this works</summary>
+      <ol>
+        <li>Every RSVP submitted from the site is listed here (newest first) and also written to your Google Sheet.</li>
+        <li>Filter by gathering, or download everything as a spreadsheet.</li>
+        <li>The <b>Sheet</b> column shows whether each row reached Google Sheets. “No” usually just means the Sheet was briefly unreachable — the RSVP is still safe here.</li>
+      </ol>
+    </details>
+    <div class="rsvp-controls">
+      <select id="rsvpFilter"><option value="">All gatherings</option></select>
+      <button id="reloadRsvpsBtn">Refresh</button>
+      <button class="ghost" id="csvBtn">Download CSV</button>
+      <span class="status grow" id="rsvpsStatus"></span>
+    </div>
+    <div id="rsvpsTable"></div>
+  </section>
+
+</div>
+
+<div class="savebar" id="savebar">
+  <div class="wrap">
+    <div class="info" id="saveInfo">Loading…</div>
+    <div class="actions">
+      <button class="ghost" id="discardBtn">Discard changes</button>
+      <button class="rose" id="saveBtn">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="catlist"></datalist>
+
+<script>
+/* =========================================================================
+   Small API helper — same-origin; Cloudflare Access cookie rides along.
+   ========================================================================= */
+async function api(method, path, body){
+  const opt = { method, headers:{} };
+  if(body !== undefined){ opt.headers["content-type"]="application/json"; opt.body=JSON.stringify(body); }
+  const res = await fetch(path, opt);
+  if(res.status === 401 || res.status === 403){
+    throw new Error("Not signed in (Cloudflare Access). Reload the page and log in.");
+  }
+  let data = null;
+  try{ data = await res.json(); }catch(_){}
+  if(!res.ok){ throw new Error((data && data.error) ? data.error : ("HTTP "+res.status)); }
+  return data;
+}
+
+const $ = s => document.querySelector(s);
+const TONES = ["cyan","rose","gold"];
+const QUOTE_TONES = ["cream","deep","rose","cyan","gold"];
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+let activeTab = "events";
+const dirty = { events:false, quotes:false };
+function markDirty(tab){ dirty[tab]=true; updateSaveInfo(); }
+
+/* =========================================================================
+   Shared helpers
+   ========================================================================= */
+function escapeHtml(s){ return String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function escapeAttr(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+function slugify(s){
+  return String(s).toLowerCase().trim()
+    .replace(/[^\w\s-]/g,"").replace(/[\s_]+/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");
+}
+
+/* =========================================================================
+   EVENTS
+   ========================================================================= */
+const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note"];
+let events = [];
+let originalEventIds = new Set();
+const eOpen = {};
+const eventsListEl = $("#eventsList");
+
+function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"" }; }
+
+function isoToDisplay(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-").map(Number);
+  if(!y||!m||!d) return "";
+  const dt = new Date(y, m-1, d);
+  return `${WD[dt.getDay()]}, ${MO[m-1]} ${d}`;
+}
+function displayToIso(str){
+  if(!str) return "";
+  const m = str.match(/([A-Za-z]{3,})\.?\s+(\d{1,2})/);
+  if(!m) return "";
+  const mi = MO.findIndex(x => x.toLowerCase() === m[1].slice(0,3).toLowerCase());
+  if(mi < 0) return "";
+  const day = +m[2];
+  const today = new Date();
+  let y = today.getFullYear();
+  const floor = new Date(today.getFullYear(), today.getMonth(), today.getDate()-45);
+  if(new Date(y, mi, day) < floor) y += 1;
+  return `${y}-${String(mi+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+}
+function timeInputToDisplay(t){
+  if(!t) return "";
+  let [h,m] = t.split(":").map(Number);
+  const ap = h < 12 ? "am" : "pm";
+  let h12 = h % 12; if(h12 === 0) h12 = 12;
+  return `${h12}:${String(m).padStart(2,"0")}${ap}`;
+}
+function displayToTimeInput(str){
+  if(!str) return "";
+  const m = str.match(/(\d{1,2}):(\d{2})\s*([ap]m)/i);
+  if(!m) return "";
+  let h = (+m[1]) % 12; if(/pm/i.test(m[3])) h += 12;
+  return `${String(h).padStart(2,"0")}:${m[2]}`;
+}
+function uniqueEventSlug(base, idx){
+  const taken = new Set(events.map((e,i)=> i===idx ? null : (e.id||"").trim()).filter(Boolean));
+  let cand = base || "gathering", n = 1;
+  while(taken.has(cand)){ n++; cand = `${base||"gathering"}-${n}`; }
+  return cand;
+}
+function validateEvent(i){
+  const e = events[i];
+  const errs = {}, warns = {};
+  const id = (e.id||"").trim();
+  if(!id) errs.id = "ID is required.";
+  else {
+    const dup = events.some((o,j)=> j!==i && (o.id||"").trim() === id);
+    if(dup) errs.id = "Another gathering already uses this ID.";
+    else if(slugify(id) !== id) warns.id = "Will be tidied to “"+slugify(id)+"” on save.";
+  }
+  if(!(e.title||"").trim()) errs.title = "Title is required.";
+  if(!(e.date||"").trim()) warns.date = "No date set.";
+  const price = Number(e.price);
+  if(isNaN(price) || price < 0) errs.price = "Price must be 0 or more.";
+  const url = (e.stripeUrl||"").trim();
+  if(url && !/^https?:\/\//i.test(url)) errs.stripeUrl = "Link should start with http:// or https://";
+  else if(price > 0 && !url) warns.stripeUrl = "Paid gathering with no Stripe link — “Get my ticket” will only confirm the seat, not charge.";
+  else if(price === 0 && url) warns.stripeUrl = "Free gathering has a Stripe link — attendees would be charged.";
+  const fb = (e.facebookUrl||"").trim();
+  if(fb && !/^https?:\/\//i.test(fb)) errs.facebookUrl = "Link should start with http:// or https://";
+  else if(fb && !/facebook\.com|fb\.me|fb\.com/i.test(fb)) warns.facebookUrl = "That doesn’t look like a Facebook link — double-check it.";
+  return { errs, warns };
+}
+
+function renderEvents(){
+  if(events.length === 0){
+    eventsListEl.innerHTML = '<div class="empty"><h2>No gatherings yet</h2><p>Add one to get started.</p></div>';
+    updateSaveInfo(); return;
+  }
+  eventsListEl.innerHTML = "";
+  events.forEach((e,i)=> eventsListEl.insertAdjacentHTML("beforeend", eventCardHTML(i)));
+  events.forEach((_,i)=> applyEventValidation(i));
+  updateSaveInfo();
+}
+function eventCardHTML(i){
+  const e = events[i];
+  const tone = TONES.includes(e.tone) ? e.tone : "cyan";
+  const v = validateEvent(i);
+  const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
+  const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
+  const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
+  const badge = hasErr ? '<span class="badge err">needs fixing</span>'
+                       : (hasWarn ? '<span class="badge warnb">check</span>' : '');
+  return `
+  <div class="card tone-${tone}${eOpen[i]?" open":""}${hasErr?" has-error":""}" data-card="${i}">
+    <div class="card-head" data-toggle="${i}">
+      <div>
+        <div class="title">${escapeHtml(e.title||"(untitled)")} ${badge}</div>
+        <div class="meta">${escapeHtml(metaBits)}${metaBits?" · ":""}${priceLabel}</div>
+      </div>
+      <div class="controls">
+        <button class="icon ghost" data-up="${i}" title="Move up" ${i===0?"disabled":""}>↑</button>
+        <button class="icon ghost" data-down="${i}" title="Move down" ${i===events.length-1?"disabled":""}>↓</button>
+        <button class="icon ghost" data-dup="${i}" title="Duplicate">⧉</button>
+        <button class="icon ghost" data-del="${i}" title="Delete">✕</button>
+        <span class="chev">▸</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>ID <span class="req">*</span><span class="hint">short, unique — used in the web address</span></label>
+        <div class="row">
+          <input type="text" data-i="${i}" data-k="id" value="${escapeAttr(e.id)}" placeholder="e.g. long-table-dinner">
+          <button class="mini ghost" data-slug="${i}" title="Generate from the title">↻ from title</button>
+        </div>
+        <div class="field-msg" data-msg="id"></div>
+      </div>
+      <div class="field">
+        <label>Tone <span class="hint">accent colour on the card</span></label>
+        <select data-i="${i}" data-k="tone">
+          ${TONES.map(t=>`<option value="${t}" ${t===e.tone?"selected":""}>${t}</option>`).join("")}
+        </select>
+        <div class="field-msg"></div>
+      </div>
+      <div class="field full">
+        <label>Title <span class="req">*</span></label>
+        <input type="text" data-i="${i}" data-k="title" value="${escapeAttr(e.title)}" placeholder="e.g. Long table dinner">
+        <div class="field-msg" data-msg="title"></div>
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <div class="row">
+          <input type="date" data-i="${i}" data-role="date-pick" value="${escapeAttr(displayToIso(e.date))}">
+          <input type="text" data-i="${i}" data-k="date" value="${escapeAttr(e.date)}" placeholder="Sun, Aug 16">
+        </div>
+        <div class="field-msg" data-msg="date"></div>
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <div class="row">
+          <input type="time" data-i="${i}" data-role="time-pick" value="${escapeAttr(displayToTimeInput(e.time))}">
+          <input type="text" data-i="${i}" data-k="time" value="${escapeAttr(e.time)}" placeholder="9:30am">
+        </div>
+        <div class="field-msg"></div>
+      </div>
+      <div class="field full">
+        <label>Place</label>
+        <input type="text" data-i="${i}" data-k="place" value="${escapeAttr(e.place)}" placeholder="e.g. Foxy Loxy, Bull St">
+        <div class="field-msg"></div>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <input type="text" list="catlist" data-i="${i}" data-k="category" value="${escapeAttr(e.category)}" placeholder="e.g. Ticketed">
+        <div class="field-msg"></div>
+      </div>
+      <div class="field">
+        <label>Price (USD) <span class="hint">0 = free</span></label>
+        <input type="number" min="0" step="1" data-i="${i}" data-k="price" data-num="1" value="${escapeAttr(e.price)}">
+        <div class="field-msg" data-msg="price"></div>
+      </div>
+      <div class="field full">
+        <label>Stripe payment link <span class="hint">paid gatherings only</span></label>
+        <input type="text" data-i="${i}" data-k="stripeUrl" value="${escapeAttr(e.stripeUrl)}" placeholder="https://buy.stripe.com/...">
+        <div class="field-msg" data-msg="stripeUrl"></div>
+      </div>
+      <div class="field full">
+        <label>Facebook event link <span class="hint">optional — the event's page on Facebook</span></label>
+        <input type="text" data-i="${i}" data-k="facebookUrl" value="${escapeAttr(e.facebookUrl)}" placeholder="https://www.facebook.com/events/...">
+        <div class="field-msg" data-msg="facebookUrl"></div>
+      </div>
+      <div class="field full">
+        <label>Blurb <span class="hint">short line on the card</span></label>
+        <textarea data-i="${i}" data-k="blurb" data-count="90" placeholder="One or two sentences.">${escapeHtml(e.blurb)}</textarea>
+        <div class="charcount" data-cc="blurb"></div>
+      </div>
+      <div class="field full">
+        <label>Detail <span class="hint">the longer description on the event page</span></label>
+        <textarea data-i="${i}" data-k="detail" placeholder="A paragraph or two.">${escapeHtml(e.detail)}</textarea>
+        <div class="field-msg"></div>
+      </div>
+      <div class="field full">
+        <label>Note / photo <span class="hint">describe the photo, or paste an image URL</span></label>
+        <textarea data-i="${i}" data-k="note" placeholder="Photo — ...">${escapeHtml(e.note)}</textarea>
+        <div class="field-msg"></div>
+      </div>
+    </div>
+  </div>`;
+}
+function applyEventValidation(i){
+  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
+  if(!card) return;
+  const v = validateEvent(i);
+  ["id","title","date","price","stripeUrl","facebookUrl"].forEach(k=>{
+    const msg = card.querySelector(`[data-msg="${k}"]`);
+    const input = card.querySelector(`[data-k="${k}"]`);
+    if(!msg) return;
+    if(v.errs[k]){ msg.textContent = v.errs[k]; msg.className = "field-msg err"; if(input) input.classList.add("err"); }
+    else if(v.warns[k]){ msg.textContent = v.warns[k]; msg.className = "field-msg warn"; if(input) input.classList.remove("err"); }
+    else { msg.textContent = ""; msg.className = "field-msg"; if(input) input.classList.remove("err"); }
+  });
+  const cc = card.querySelector('[data-cc="blurb"]');
+  if(cc){ const n=(events[i].blurb||"").length; cc.textContent = n+" characters"+(n>140?" — getting long for a card":""); }
+  card.classList.toggle("has-error", Object.keys(v.errs).length>0);
+  refreshEventHeader(i);
+}
+function refreshEventHeader(i){
+  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
+  if(!card) return;
+  const e = events[i];
+  const v = validateEvent(i);
+  const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
+  const tone = TONES.includes(e.tone) ? e.tone : "cyan";
+  const badge = hasErr ? '<span class="badge err">needs fixing</span>'
+                       : (hasWarn ? '<span class="badge warnb">check</span>' : '');
+  card.querySelector(".card-head .title").innerHTML = escapeHtml(e.title||"(untitled)")+" "+badge;
+  const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
+  const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
+  card.querySelector(".card-head .meta").textContent = metaBits + (metaBits?" · ":"") + priceLabel;
+  card.className = "card tone-"+tone+(eOpen[i]?" open":"")+(hasErr?" has-error":"");
+}
+function setEventField(i, key, val){
+  events[i][key] = val;
+  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
+  const inp = card && card.querySelector(`[data-k="${key}"]`);
+  if(inp && inp.value !== String(val)) inp.value = val;
+}
+
+eventsListEl.addEventListener("input", e=>{
+  const el = e.target; const i = el.dataset.i;
+  if(i === undefined) return;
+  const idx = +i, role = el.dataset.role, k = el.dataset.k;
+  if(role === "date-pick"){ setEventField(idx,"date", isoToDisplay(el.value)); applyEventValidation(idx); markDirty("events"); return; }
+  if(role === "time-pick"){ setEventField(idx,"time", timeInputToDisplay(el.value)); applyEventValidation(idx); markDirty("events"); return; }
+  if(k === undefined) return;
+  let val = el.value;
+  if(el.dataset.num) val = val === "" ? 0 : Number(val);
+  events[idx][k] = val;
+  if(k === "title" && !(events[idx].id||"").trim()){
+    setEventField(idx, "id", uniqueEventSlug(slugify(val), idx));
+  }
+  applyEventValidation(idx); markDirty("events");
+});
+eventsListEl.addEventListener("change", e=>{
+  const el = e.target;
+  if(el.dataset.k === "tone" && el.dataset.i !== undefined){
+    events[+el.dataset.i].tone = el.value; refreshEventHeader(+el.dataset.i); markDirty("events");
+  }
+});
+eventsListEl.addEventListener("focusout", e=>{
+  const el = e.target;
+  if(el.dataset.k === "id" && el.dataset.i !== undefined){
+    const idx = +el.dataset.i;
+    const cur = (events[idx].id||"").trim();
+    if(cur){ const clean = uniqueEventSlug(slugify(cur), idx); if(clean !== cur){ setEventField(idx,"id",clean); } }
+    applyEventValidation(idx);
+  }
+});
+eventsListEl.addEventListener("click", e=>{
+  const t = e.target;
+  if(t.dataset.slug !== undefined){
+    const idx = +t.dataset.slug;
+    const from = (events[idx].title||"").trim() || (events[idx].id||"");
+    setEventField(idx, "id", uniqueEventSlug(slugify(from), idx));
+    applyEventValidation(idx); markDirty("events"); e.stopPropagation(); return;
+  }
+  if(t.dataset.up !== undefined){ moveEvent(+t.dataset.up,-1); e.stopPropagation(); return; }
+  if(t.dataset.down !== undefined){ moveEvent(+t.dataset.down, 1); e.stopPropagation(); return; }
+  if(t.dataset.dup !== undefined){ dupEvent(+t.dataset.dup); e.stopPropagation(); return; }
+  if(t.dataset.del !== undefined){ delEvent(+t.dataset.del); e.stopPropagation(); return; }
+  const head = t.closest("[data-toggle]");
+  if(head){ const idx = +head.dataset.toggle; eOpen[idx] = !eOpen[idx]; renderEvents(); }
+});
+function moveEvent(i,dir){
+  const j = i+dir; if(j<0||j>=events.length) return;
+  [events[i],events[j]] = [events[j],events[i]];
+  const a=eOpen[i], b=eOpen[j]; eOpen[i]=b; eOpen[j]=a;
+  renderEvents(); markDirty("events");
+}
+function dupEvent(i){
+  const copy = JSON.parse(JSON.stringify(events[i]));
+  copy.id = uniqueEventSlug(slugify(copy.id||copy.title||"gathering")+"-copy", -1);
+  events.splice(i+1,0,copy);
+  const next={}; Object.keys(eOpen).forEach(k=>{k=+k; next[k>i?k+1:k]=eOpen[k];});
+  Object.keys(eOpen).forEach(k=>delete eOpen[k]); Object.assign(eOpen,next);
+  eOpen[i+1]=true; renderEvents(); markDirty("events");
+}
+function delEvent(i){
+  if(!confirm(`Delete "${events[i].title||events[i].id||"this gathering"}"? This removes it from the list here; it's deleted from the site when you Save.`)) return;
+  events.splice(i,1);
+  const next={}; Object.keys(eOpen).forEach(k=>{k=+k; if(k===i)return; next[k>i?k-1:k]=eOpen[k];});
+  Object.keys(eOpen).forEach(k=>delete eOpen[k]); Object.assign(eOpen,next);
+  renderEvents(); markDirty("events");
+}
+
+$("#addEventBtn").addEventListener("click", ()=>{
+  const e = blankEvent();
+  const today = new Date();
+  e.date = `${WD[today.getDay()]}, ${MO[today.getMonth()]} ${today.getDate()}`;
+  events.push(e); eOpen[events.length-1]=true; renderEvents(); markDirty("events");
+  window.scrollTo({top:document.body.scrollHeight, behavior:"smooth"});
+});
+$("#collapseEventsBtn").addEventListener("click", ()=>{
+  const anyOpen = Object.values(eOpen).some(Boolean);
+  Object.keys(eOpen).forEach(k=>delete eOpen[k]);
+  if(!anyOpen) events.forEach((_,i)=> eOpen[i]=true);
+  $("#collapseEventsBtn").textContent = anyOpen ? "Expand all" : "Collapse all";
+  renderEvents();
+});
+$("#reloadEventsBtn").addEventListener("click", loadEvents);
+
+async function loadEvents(){
+  try{
+    setStatus("eventsStatus","Loading…");
+    const data = await api("GET","/api/admin/events");
+    events = data.map(o=>{ const c={}; EFIELDS.forEach(k=> c[k] = o[k]!==undefined ? o[k] : blankEvent()[k]); return c; });
+    originalEventIds = new Set(events.map(e=>e.id));
+    Object.keys(eOpen).forEach(k=>delete eOpen[k]);
+    dirty.events = false;
+    renderEvents();
+    setStatus("eventsStatus", `${events.length} gathering${events.length!==1?"s":""} loaded.`, "ok");
+    buildRsvpFilter();
+  }catch(err){ setStatus("eventsStatus", "Couldn’t load: "+err.message, "warn"); }
+}
+async function saveEvents(){
+  events.forEach((e,i)=>{ const id=(e.id||"").trim(); if(id) e.id = uniqueEventSlug(slugify(id), i); });
+  renderEvents();
+  let errors=0; events.forEach((_,i)=> errors += Object.keys(validateEvent(i).errs).length);
+  if(errors && !confirm(`${errors} field${errors>1?"s":""} still need fixing (shown in pink). Save anyway?`)) return;
+
+  const currentIds = events.map(e=>e.id);
+  const toDelete = [...originalEventIds].filter(id=> !currentIds.includes(id));
+  try{
+    setStatus("eventsStatus","Saving…");
+    for(const id of toDelete){ await api("DELETE","/api/admin/events/"+encodeURIComponent(id)); }
+    for(const e of events){
+      const payload = {}; EFIELDS.forEach(k=> payload[k]=e[k]);
+      if(originalEventIds.has(e.id)){ await api("PUT","/api/admin/events/"+encodeURIComponent(e.id), payload); }
+      else { await api("POST","/api/admin/events", payload); }
+    }
+    await api("POST","/api/admin/reorder", { type:"events", order: currentIds });
+    await loadEvents();
+    setStatus("eventsStatus","Saved ✓ The site is updated.","ok");
+  }catch(err){ setStatus("eventsStatus","Save failed: "+err.message,"warn"); }
+}
+
+/* =========================================================================
+   QUOTES
+   ========================================================================= */
+let quotes = [];
+let originalQuoteIds = new Set();
+const qOpen = {};
+const quotesListEl = $("#quotesList");
+
+function blankQuote(){ return { id:null, name:"", detail:"", tone:"cream", body:"", monogram:"", active:1 }; }
+function validateQuote(i){
+  const q = quotes[i]; const errs={};
+  if(!(q.name||"").trim()) errs.name = "Name is required.";
+  if(!(q.body||"").trim()) errs.body = "Quote text is required.";
+  return { errs };
+}
+function renderQuotes(){
+  if(quotes.length === 0){
+    quotesListEl.innerHTML = '<div class="empty"><h2>No quotes yet</h2><p>Add member quotes for the home page.</p></div>';
+    updateSaveInfo(); return;
+  }
+  quotesListEl.innerHTML = "";
+  quotes.forEach((_,i)=> quotesListEl.insertAdjacentHTML("beforeend", quoteCardHTML(i)));
+  quotes.forEach((_,i)=> applyQuoteValidation(i));
+  updateSaveInfo();
+}
+function quoteCardHTML(i){
+  const q = quotes[i];
+  const tone = QUOTE_TONES.includes(q.tone) ? q.tone : "cream";
+  const off = !q.active;
+  const badge = off ? '<span class="badge off">hidden</span>' : '';
+  const preview = (q.body||"").slice(0,60) + ((q.body||"").length>60?"…":"");
+  return `
+  <div class="card tone-${tone}${qOpen[i]?" open":""}${off?" inactive":""}" data-qcard="${i}">
+    <div class="card-head" data-qtoggle="${i}">
+      <div>
+        <div class="title">${escapeHtml(q.name||"(no name)")} ${badge}</div>
+        <div class="meta">${escapeHtml(q.detail||"")}${q.detail?" · ":""}${escapeHtml(preview)}</div>
+      </div>
+      <div class="controls">
+        <button class="icon ghost" data-qup="${i}" title="Move up" ${i===0?"disabled":""}>↑</button>
+        <button class="icon ghost" data-qdown="${i}" title="Move down" ${i===quotes.length-1?"disabled":""}>↓</button>
+        <button class="icon ghost" data-qdel="${i}" title="Delete">✕</button>
+        <span class="chev">▸</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>Name <span class="req">*</span></label>
+        <input type="text" data-qi="${i}" data-qk="name" value="${escapeAttr(q.name)}" placeholder="e.g. Danielle">
+        <div class="field-msg" data-qmsg="name"></div>
+      </div>
+      <div class="field">
+        <label>Detail <span class="hint">small line under the name</span></label>
+        <input type="text" data-qi="${i}" data-qk="detail" value="${escapeAttr(q.detail)}" placeholder="e.g. moved here in January">
+        <div class="field-msg"></div>
+      </div>
+      <div class="field">
+        <label>Tone <span class="hint">accent colour</span></label>
+        <select data-qi="${i}" data-qk="tone">
+          ${QUOTE_TONES.map(t=>`<option value="${t}" ${t===tone?"selected":""}>${t}</option>`).join("")}
+        </select>
+        <div class="field-msg"></div>
+      </div>
+      <div class="field">
+        <label>Monogram <span class="hint">optional — defaults to first letter</span></label>
+        <input type="text" maxlength="2" data-qi="${i}" data-qk="monogram" value="${escapeAttr(q.monogram)}" placeholder="D">
+        <div class="field-msg"></div>
+      </div>
+      <div class="field full">
+        <label>Quote <span class="req">*</span></label>
+        <textarea data-qi="${i}" data-qk="body" placeholder="What she said…">${escapeHtml(q.body)}</textarea>
+        <div class="field-msg" data-qmsg="body"></div>
+      </div>
+      <div class="field full">
+        <div class="checkrow">
+          <input type="checkbox" id="qactive-${i}" data-qi="${i}" data-qk="active" ${q.active?"checked":""}>
+          <label for="qactive-${i}">Show this quote on the site</label>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function applyQuoteValidation(i){
+  const card = quotesListEl.querySelector(`.card[data-qcard="${i}"]`);
+  if(!card) return;
+  const v = validateQuote(i);
+  ["name","body"].forEach(k=>{
+    const msg = card.querySelector(`[data-qmsg="${k}"]`);
+    const input = card.querySelector(`[data-qk="${k}"]`);
+    if(!msg) return;
+    if(v.errs[k]){ msg.textContent=v.errs[k]; msg.className="field-msg err"; if(input) input.classList.add("err"); }
+    else { msg.textContent=""; msg.className="field-msg"; if(input) input.classList.remove("err"); }
+  });
+}
+function refreshQuoteHeader(i){
+  const card = quotesListEl.querySelector(`.card[data-qcard="${i}"]`);
+  if(!card) return;
+  const q = quotes[i];
+  const tone = QUOTE_TONES.includes(q.tone) ? q.tone : "cream";
+  const off = !q.active;
+  const badge = off ? '<span class="badge off">hidden</span>' : '';
+  const preview = (q.body||"").slice(0,60) + ((q.body||"").length>60?"…":"");
+  card.querySelector(".card-head .title").innerHTML = escapeHtml(q.name||"(no name)")+" "+badge;
+  card.querySelector(".card-head .meta").textContent = (q.detail?q.detail+" · ":"")+preview;
+  card.className = "card tone-"+tone+(qOpen[i]?" open":"")+(off?" inactive":"");
+}
+quotesListEl.addEventListener("input", e=>{
+  const el = e.target; const i = el.dataset.qi;
+  if(i === undefined) return;
+  const idx=+i, k=el.dataset.qk;
+  if(k==="active") return; // checkbox handled on change
+  quotes[idx][k] = el.value;
+  applyQuoteValidation(idx); refreshQuoteHeader(idx); markDirty("quotes");
+});
+quotesListEl.addEventListener("change", e=>{
+  const el = e.target; const i = el.dataset.qi;
+  if(i === undefined) return;
+  const idx=+i, k=el.dataset.qk;
+  if(k==="active"){ quotes[idx].active = el.checked?1:0; refreshQuoteHeader(idx); markDirty("quotes"); }
+  else if(k==="tone"){ quotes[idx].tone = el.value; refreshQuoteHeader(idx); markDirty("quotes"); }
+});
+quotesListEl.addEventListener("click", e=>{
+  const t = e.target;
+  if(t.dataset.qup !== undefined){ moveQuote(+t.dataset.qup,-1); e.stopPropagation(); return; }
+  if(t.dataset.qdown !== undefined){ moveQuote(+t.dataset.qdown, 1); e.stopPropagation(); return; }
+  if(t.dataset.qdel !== undefined){ delQuote(+t.dataset.qdel); e.stopPropagation(); return; }
+  const head = t.closest("[data-qtoggle]");
+  if(head){ const idx=+head.dataset.qtoggle; qOpen[idx]=!qOpen[idx]; renderQuotes(); }
+});
+function moveQuote(i,dir){
+  const j=i+dir; if(j<0||j>=quotes.length) return;
+  [quotes[i],quotes[j]]=[quotes[j],quotes[i]];
+  const a=qOpen[i], b=qOpen[j]; qOpen[i]=b; qOpen[j]=a;
+  renderQuotes(); markDirty("quotes");
+}
+function delQuote(i){
+  if(!confirm(`Delete ${quotes[i].name||"this quote"}? It's removed from the site when you Save.`)) return;
+  quotes.splice(i,1);
+  const next={}; Object.keys(qOpen).forEach(k=>{k=+k; if(k===i)return; next[k>i?k-1:k]=qOpen[k];});
+  Object.keys(qOpen).forEach(k=>delete qOpen[k]); Object.assign(qOpen,next);
+  renderQuotes(); markDirty("quotes");
+}
+$("#addQuoteBtn").addEventListener("click", ()=>{
+  quotes.push(blankQuote()); qOpen[quotes.length-1]=true; renderQuotes(); markDirty("quotes");
+  window.scrollTo({top:document.body.scrollHeight, behavior:"smooth"});
+});
+$("#collapseQuotesBtn").addEventListener("click", ()=>{
+  const anyOpen = Object.values(qOpen).some(Boolean);
+  Object.keys(qOpen).forEach(k=>delete qOpen[k]);
+  if(!anyOpen) quotes.forEach((_,i)=> qOpen[i]=true);
+  $("#collapseQuotesBtn").textContent = anyOpen ? "Expand all" : "Collapse all";
+  renderQuotes();
+});
+$("#reloadQuotesBtn").addEventListener("click", loadQuotes);
+
+async function loadQuotes(){
+  try{
+    setStatus("quotesStatus","Loading…");
+    const data = await api("GET","/api/admin/quotes");
+    quotes = data.map(o=>({ id:o.id, name:o.name||"", detail:o.detail||"", tone:o.tone||"cream", body:o.body||"", monogram:o.monogram||"", active:o.active?1:0 }));
+    originalQuoteIds = new Set(quotes.map(q=>q.id).filter(x=>x!=null));
+    Object.keys(qOpen).forEach(k=>delete qOpen[k]);
+    dirty.quotes = false;
+    renderQuotes();
+    setStatus("quotesStatus", `${quotes.length} quote${quotes.length!==1?"s":""} loaded.`, "ok");
+  }catch(err){ setStatus("quotesStatus","Couldn’t load: "+err.message,"warn"); }
+}
+async function saveQuotes(){
+  let errors=0; quotes.forEach((_,i)=> errors += Object.keys(validateQuote(i).errs).length);
+  if(errors && !confirm(`${errors} field${errors>1?"s":""} still need fixing (shown in pink). Save anyway?`)) return;
+
+  const currentIds = quotes.map(q=>q.id).filter(x=>x!=null);
+  const toDelete = [...originalQuoteIds].filter(id=> !currentIds.includes(id));
+  try{
+    setStatus("quotesStatus","Saving…");
+    for(const id of toDelete){ await api("DELETE","/api/admin/quotes/"+id); }
+    // Create/update, capturing new ids so we can order them.
+    const orderedIds = [];
+    for(const q of quotes){
+      const payload = { name:q.name, detail:q.detail, tone:q.tone, body:q.body, monogram:q.monogram, active:q.active };
+      if(q.id!=null){ await api("PUT","/api/admin/quotes/"+q.id, payload); orderedIds.push(q.id); }
+      else { const r = await api("POST","/api/admin/quotes", payload); q.id = r.id; orderedIds.push(r.id); }
+    }
+    await api("POST","/api/admin/reorder", { type:"quotes", order: orderedIds });
+    await loadQuotes();
+    setStatus("quotesStatus","Saved ✓ The site is updated.","ok");
+  }catch(err){ setStatus("quotesStatus","Save failed: "+err.message,"warn"); }
+}
+
+/* =========================================================================
+   RSVPS
+   ========================================================================= */
+const rsvpsTableEl = $("#rsvpsTable");
+let rsvpEventLabels = {};
+function buildRsvpFilter(){
+  rsvpEventLabels = {};
+  events.forEach(e=> rsvpEventLabels[e.id] = e.title || e.id);
+  const sel = $("#rsvpFilter");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All gatherings</option>' +
+    events.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.title||e.id)}</option>`).join("");
+  sel.value = cur;
+}
+async function loadRsvps(){
+  try{
+    setStatus("rsvpsStatus","Loading…");
+    const filter = $("#rsvpFilter").value;
+    const q = filter ? "?event_id="+encodeURIComponent(filter) : "";
+    const data = await api("GET","/api/admin/rsvps"+q);
+    renderRsvps(data);
+    setStatus("rsvpsStatus", `${data.length} RSVP${data.length!==1?"s":""}.`, "ok");
+  }catch(err){ setStatus("rsvpsStatus","Couldn’t load: "+err.message,"warn"); }
+}
+function renderRsvps(rows){
+  if(!rows.length){ rsvpsTableEl.innerHTML = '<div class="empty"><h2>No RSVPs yet</h2><p>They’ll appear here as people sign up.</p></div>'; return; }
+  const body = rows.map(r=>{
+    const when = (r.createdAt||"").replace("T"," ").replace("Z","");
+    const ev = rsvpEventLabels[r.eventId] || r.eventId || "—";
+    const sync = r.syncedSheet ? '<span class="sync yes">Sheet ✓</span>' : '<span class="sync no">Sheet —</span>';
+    return `<tr>
+      <td>${escapeHtml(when)}</td>
+      <td>${escapeHtml(ev)}</td>
+      <td>${escapeHtml(r.name||"")}</td>
+      <td>${r.email?`<a href="mailto:${escapeAttr(r.email)}">${escapeHtml(r.email)}</a>`:""}</td>
+      <td>${escapeHtml(String(r.guests||1))}</td>
+      <td>${escapeHtml(r.note||"")}</td>
+      <td>${sync}</td>
+    </tr>`;
+  }).join("");
+  rsvpsTableEl.innerHTML = `<table class="rsvps">
+    <thead><tr><th>When</th><th>Gathering</th><th>Name</th><th>Email</th><th>Guests</th><th>Note</th><th>Sheet</th></tr></thead>
+    <tbody>${body}</tbody></table>`;
+}
+$("#reloadRsvpsBtn").addEventListener("click", loadRsvps);
+$("#rsvpFilter").addEventListener("change", loadRsvps);
+$("#csvBtn").addEventListener("click", ()=>{
+  const filter = $("#rsvpFilter").value;
+  const q = filter ? "?event_id="+encodeURIComponent(filter)+"&format=csv" : "?format=csv";
+  window.location.href = "/api/admin/rsvps"+q;
+});
+
+/* =========================================================================
+   Tabs, save bar, status
+   ========================================================================= */
+function setStatus(id, msg, kind){ const el=$("#"+id); if(!el) return; el.textContent=msg||""; el.className="status grow"+(kind?" "+kind:""); }
+
+function switchTab(tab){
+  activeTab = tab;
+  document.querySelectorAll(".tab").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
+  document.querySelectorAll(".panel").forEach(p=> p.classList.remove("active"));
+  $("#panel-"+tab).classList.add("active");
+  const showSave = (tab==="events"||tab==="quotes");
+  $("#savebar").style.display = showSave ? "" : "none";
+  if(tab==="rsvps") loadRsvps();
+  updateSaveInfo();
+  window.scrollTo({top:0});
+}
+document.querySelectorAll(".tab").forEach(b=> b.addEventListener("click", ()=> switchTab(b.dataset.tab)));
+
+function updateSaveInfo(){
+  const info = $("#saveInfo");
+  if(activeTab==="events"){
+    const n = events.length;
+    let errs=0; events.forEach((_,i)=> errs += Object.keys(validateEvent(i).errs).length);
+    let txt = `<b>${n}</b> gathering${n!==1?"s":""}`;
+    if(dirty.events) txt += " · unsaved changes";
+    if(errs) txt += ` · <span class="warnc">⚠ ${errs} to fix</span>`;
+    info.innerHTML = txt;
+  } else if(activeTab==="quotes"){
+    const n = quotes.length;
+    let errs=0; quotes.forEach((_,i)=> errs += Object.keys(validateQuote(i).errs).length);
+    let txt = `<b>${n}</b> quote${n!==1?"s":""}`;
+    if(dirty.quotes) txt += " · unsaved changes";
+    if(errs) txt += ` · <span class="warnc">⚠ ${errs} to fix</span>`;
+    info.innerHTML = txt;
+  }
+}
+$("#saveBtn").addEventListener("click", ()=>{ if(activeTab==="events") saveEvents(); else if(activeTab==="quotes") saveQuotes(); });
+$("#discardBtn").addEventListener("click", ()=>{
+  if(activeTab==="events"){ if(dirty.events && !confirm("Discard unsaved gathering changes?")) return; loadEvents(); }
+  else if(activeTab==="quotes"){ if(dirty.quotes && !confirm("Discard unsaved quote changes?")) return; loadQuotes(); }
+});
+window.addEventListener("beforeunload", e=>{ if(dirty.events||dirty.quotes){ e.preventDefault(); e.returnValue=""; } });
+
+/* ---- Category datalist ---- */
+$("#catlist").innerHTML = ["Slow morning","Ticketed","Outdoors","Free","Social"].map(c=>`<option value="${c}">`).join("");
+
+/* ---- Boot ---- */
+(async function boot(){
+  await loadEvents();
+  await loadQuotes();
+})();
+</script>
+</body>
+</html>

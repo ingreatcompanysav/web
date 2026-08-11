@@ -1,51 +1,77 @@
-# In Great Company — static site
+# In Great Company — site
 
-Three files, no build step.
+A static site on **Cloudflare Pages** with a small serverless backend
+(**Cloudflare D1** + **Pages Functions**) for the parts that need to change
+often: gatherings, member quotes, and event RSVPs. Two editors manage
+everything from a browser admin, gated by **Cloudflare Access**.
 
-| File | What it is |
+## Layout
+
+| Path | What it is |
 | --- | --- |
-| `index.html` | The whole site. Fonts, logos, styles and scripts inlined. |
-| `events.json` | The gatherings calendar. The site fetches this at load. |
-| `admin.html` | Editor for `events.json`. **Gitignored — runs locally, never deployed.** |
-| `start-admin.command` | Double-click launcher for the editor. **Gitignored — local only.** |
+| `index.html` | The whole public site. Fonts, logos, styles and scripts inlined. It fetches `/api/events` and `/api/quotes` at load, and shows an RSVP form on each gathering. |
+| `admin.html` | The editor for gatherings, quotes and RSVPs. **Deployed, but locked behind Cloudflare Access** — only the two editors' emails can open it. |
+| `functions/` | The `/api/*` endpoints (Pages Functions) that read and write the database. |
+| `db/` | `schema.sql` (tables) and `seed.sql` (initial data). |
+| `apps-script/rsvp.gs` | The Google Apps Script that copies each RSVP into a Google Sheet. |
+| `wrangler.toml` | Declares the D1 binding (needed for local dev and the build). |
+| `events.json` | The original calendar file. **No longer read by the site** — kept until the database is proven, then delete. |
+
+## First-time setup
+
+See **[SETUP.md](SETUP.md)** — the one-time runbook for creating the database,
+binding it, locking the admin with Access, wiring Turnstile, and connecting the
+Google Sheet. You only do that once.
 
 ## About `index.html` (heads up before editing it)
 
-`index.html` is not hand-written HTML — it's a **compiled bundle**: the real page (markup + styles) lives in a JSON `<script type="__bundler/template">` blob on line 384, and fonts/images live in a manifest blob on line 372. A script in the file reassembles the page in the browser. So you can't just edit the visible HTML.
+`index.html` is not hand-written HTML — it's a **compiled bundle**: the real page
+(markup + styles + app logic) lives in a JSON `<script type="__bundler/template">`
+blob on line 384, and fonts/images live in a manifest blob on line 372. A loader
+reassembles the page in the browser. So you can't just edit the visible HTML.
 
-Two things have been hand-patched into that bundle: a **mobile-responsive `<style>` block** (a `@media (max-width: 820px)` rule near the end of the last `<style>` — search for "Mobile responsiveness") and the **removal of the "Behind the site" nav item + section**. If you need to change the site's copy or images, that's a careful bundle edit — ask and it can be done (or the site can be rebuilt as plain HTML for easier upkeep).
+Hand-patched into that bundle: a mobile-responsive `<style>` block; the app now
+fetches `/api/events` and `/api/quotes` (with the original data kept as a
+fallback); and a self-contained **RSVP modal** (search the blob for
+`igcOpenRSVP`). The one thing you'll likely touch by hand is the **Turnstile
+site key** — search `index.html` for `REPLACE_WITH_TURNSTILE_SITE_KEY`.
 
-## Deploy to Cloudflare (via GitHub)
+## Day-to-day: editing the site
 
-1. Commit `index.html`, `events.json` and `.gitignore` to the root of `ingreatcompanysav/web` on `main`. (`admin.html` is gitignored on purpose — keep it locally.)
-2. Cloudflare dashboard → Workers & Pages → your project → it redeploys on every push.
-3. If the `workers.dev` URL shows "No URLs enabled": project → Settings → Domains & Routes → enable it.
-4. Custom domain: Settings → Domains & Routes → add `ingreatcompany.co`. Register through Cloudflare Registrar (at cost, ~$10–15/yr). SSL is automatic.
-
-Previous deployments stay as one-click rollbacks.
-
-## Updating the calendar
-
-1. Double-click **`start-admin.command`** (also gitignored, local-only). It serves this folder locally and opens the editor with your current `events.json` already loaded. Leave the little Terminal window open while you work; close it when done. (First run: right-click → Open to get past the macOS "unidentified developer" prompt.)
-   - Or, from a terminal: `python3 -m http.server 8787` in this folder, then visit `http://localhost:8787/admin.html`.
-2. Edit, add, reorder, remove gatherings. Pick dates/times from the calendar and clock controls; the ID fills in automatically from the title. The editor flags missing titles/IDs, duplicate IDs, and paid gatherings with no Stripe link before you upload.
-3. Click **Save to events.json**. In Chrome/Edge (and the launcher's browser) the first save asks permission once, then writes straight back to `events.json` in this folder — no download step. (On Safari/Firefox the button falls back to **Download copy**, which lands in Downloads; move it into this folder.)
-4. GitHub → `ingreatcompanysav/web` → Add file → Upload files → drop `events.json` in → Commit. (Or, if you use git locally, just commit and push the file the editor saved.)
-5. Cloudflare redeploys within a minute.
-
-The admin page has no login and no database of its own — it only reads and writes the one `events.json` file on your machine. That is deliberate: nothing to break or get hacked, and it's kept out of the repo so it never deploys.
-
-**It stays off the internet.** `.gitignore` keeps `admin.html` out of the repo, so it can never be deployed by accident. If you later want it live for a second editor, remove that line and gate the URL with Cloudflare Access (Zero Trust → Access → Applications → path `admin.html` → allow specific emails, one-time PIN). Free up to 50 users.
+1. Go to `https://<the-site>/admin.html` and sign in (Cloudflare Access emails a
+   one-time code, or you sign in with Google).
+2. **Gatherings** tab — add, edit, reorder, or remove events. Pick dates/times
+   from the calendar/clock; the ID fills in from the title. It flags missing
+   titles/IDs, duplicate IDs, and paid events with no Stripe link.
+3. **Quotes** tab — add member quotes. The home page shows a few **at random**
+   on each visit, so add as many as you like. Toggle one **off** to hide it
+   without deleting it.
+4. **RSVPs** tab — see everyone who has signed up (also written to your Google
+   Sheet), filter by gathering, and download a CSV.
+5. Click **Save changes**. The public site updates immediately — no GitHub
+   upload, no redeploy.
 
 ## Selling tickets
 
-1. Stripe dashboard → Payment Links → create one per paid gathering (name, price, quantity cap = number of seats).
+1. Stripe dashboard → Payment Links → create one per paid gathering (name,
+   price, quantity cap = number of seats).
 2. Copy the link URL.
-3. In `admin.html`, paste it into that gathering's **Stripe payment link** field.
-4. Download, commit. "Get my ticket" now opens Stripe checkout.
+3. In the admin, paste it into that gathering's **Stripe payment link** field and
+   set a price. "Get My Ticket" now opens Stripe checkout.
 
-Stripe takes ~2.9% + 30¢ per ticket and pays out to the group's bank account. Gatherings with a price of 0 and no link just confirm the seat on the page.
+Free gatherings (price 0, no link) show the **RSVP form** instead — the attendee
+enters their name and it's recorded in the database and the Google Sheet.
+
+Stripe takes ~2.9% + 30¢ per ticket and pays out to the group's bank account.
+
+## Deploying code changes
+
+Cloudflare Pages redeploys on every push to `main` (`ingreatcompanysav/web`).
+Work on a branch, open a PR, check the **preview** deployment, then merge.
+Previous deployments stay as one-click rollbacks.
 
 ## Photos
 
-Every image is a placeholder describing the shot needed. In `events.json`, the `note` field accepts an image URL instead of a description — put photos in the repo (e.g. `/photos/dinner.jpg`) and reference them there.
+In a gathering's `note` field you can paste an image URL instead of a
+description; put photos in the repo (e.g. `/photos/dinner.jpg`) and reference
+them there.
