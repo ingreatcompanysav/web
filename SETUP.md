@@ -8,6 +8,12 @@ checklist to wire it all up. You only do this once.
 You need [Node.js](https://nodejs.org) installed (for the `wrangler` CLI) and to
 be logged into the Cloudflare account that owns the Pages project.
 
+> **Order matters.** The dashboard won't let you add secrets until a deployment
+> actually includes the `functions/` folder ("Variables cannot be added to a
+> Worker that only has static assets"). So the sequence is: create the DB →
+> lock the admin with Access → **deploy** → *then* add secrets. None of the
+> secrets are needed for the site to work in the meantime.
+
 ---
 
 ## 1. Create the database
@@ -20,7 +26,7 @@ npx wrangler d1 create igc
 ```
 
 Copy the `database_id` it prints into **`wrangler.toml`** (replace
-`REPLACE_AFTER_wrangler_d1_create`).
+`REPLACE_AFTER_wrangler_d1_create`), and commit that change.
 
 Create the tables and load the current data (events + quotes), locally and in
 production:
@@ -32,38 +38,16 @@ npx wrangler d1 execute igc --remote --file=./db/schema.sql
 npx wrangler d1 execute igc --remote --file=./db/seed.sql
 ```
 
-## 2. Bind the database to Pages
+> The `DB` binding does **not** need a dashboard step — `wrangler.toml` declares
+> it (`binding = "DB"`), and because a Wrangler config is present Cloudflare
+> treats it as the source of truth and applies it on deploy. After deploying you
+> can *see* it (read-only) under Settings → Bindings.
 
-> Note: your `/api/*` endpoints are **Pages Functions** — the files in
-> `functions/`. They deploy automatically on every push to GitHub. There is **no
-> "add a function" button** in the dashboard, and you do **not** create a
-> standalone Worker. The only dashboard step is attaching the database below.
+## 2. Lock the admin with Cloudflare Access — BEFORE deploying
 
-Cloudflare dashboard → **Workers & Pages** → your **Pages project** (the one
-already serving the site) → **Settings → Bindings → Add → D1 database
-bindings**. Set:
-
-- Variable name: `DB`   (must match exactly — it's `context.env.DB` in the code)
-- D1 database: `igc`
-
-Save, then **redeploy** (push a commit or use "Retry deployment") for it to take
-effect. If the dashboard offers separate Production and Preview environments, add
-the binding to both.
-
-## 3. Environment variables
-
-Same project → **Settings → Variables and Secrets** (older UI: "Environment
-variables"), Production + Preview. Add these as **Secret** (encrypted) values
-(you'll fill in the actual values in later steps):
-
-| Name | What it is |
-| --- | --- |
-| `APPS_SCRIPT_URL` | The Google Apps Script web-app `/exec` URL (step 6) |
-| `APPS_SCRIPT_TOKEN` | A long random string; must match the Apps Script's `RSVP_TOKEN` |
-| `TURNSTILE_SECRET` | Turnstile secret key (step 5) |
-| `ACCESS_REQUIRED` | Set to `1` — makes the admin API reject any request without a Cloudflare Access identity |
-
-## 4. Lock the admin with Cloudflare Access
+Do this before the Functions go live, so `admin.html` is never publicly
+reachable. Access gates the URL at Cloudflare's edge regardless of whether the
+code is deployed yet.
 
 Cloudflare **Zero Trust → Access → Applications → Add an application →
 Self-hosted**. Create **two** applications (or one app with two paths):
@@ -76,8 +60,40 @@ editors, and pick a login method (**One-time PIN** to their email, and/or Google
 sign-in). Leave the rest of the site — `/api/events`, `/api/quotes`,
 `/api/rsvp`, and every public page — **ungated**.
 
-> Quick check after this: in a private window, visiting `/admin.html` should
-> prompt for login, but `/api/events` should return JSON without any prompt.
+## 3. Deploy the Functions
+
+Your Pages project builds from GitHub. Push so the deployment includes
+`functions/`:
+
+```bash
+git push            # if the project only builds `main`, merge backend -> main first
+```
+
+Do **not** run `wrangler deploy` (that's for standalone Workers and will error
+with "Missing entry-point"). If you ever deploy from the CLI, it's
+`npx wrangler pages deploy .`.
+
+After this build finishes, the project is a Worker-with-Functions. Quick check:
+
+- Public: visiting `/api/events` returns a JSON array with your seeded event.
+- Admin: visiting `/admin.html` in a private window prompts for Access login.
+
+## 4. Add the secrets (now unlocked)
+
+Cloudflare dashboard → your Pages project → **Settings → Variables and Secrets**
+(older UI: "Environment variables"). This screen is available only *after* step 3.
+Add these as **Secret** (encrypted) values, for Production (and Preview if shown):
+
+| Name | What it is |
+| --- | --- |
+| `APPS_SCRIPT_URL` | The Google Apps Script web-app `/exec` URL (step 6) |
+| `APPS_SCRIPT_TOKEN` | A long random string; must match the Apps Script's `RSVP_TOKEN` |
+| `TURNSTILE_SECRET` | Turnstile secret key (step 5) |
+| `ACCESS_REQUIRED` | Set to `1` — defense-in-depth: the admin API also rejects any request with no Cloudflare Access identity |
+
+Redeploy (or push a commit) so the new values take effect. Until you set these,
+RSVPs still save to the database — they just don't copy to the Sheet, and the
+Turnstile check is skipped.
 
 ## 5. Turnstile (RSVP spam protection)
 
@@ -85,8 +101,8 @@ Cloudflare dashboard → **Turnstile → Add site**. Enter the site's hostname.
 It gives you two keys:
 
 - **Site key** (public) → open **`index.html`**, search for
-  `REPLACE_WITH_TURNSTILE_SITE_KEY`, and paste the site key there.
-- **Secret key** → the `TURNSTILE_SECRET` env var from step 3.
+  `REPLACE_WITH_TURNSTILE_SITE_KEY`, paste the site key there, and commit/deploy.
+- **Secret key** → the `TURNSTILE_SECRET` secret from step 4.
 
 Set both at the same time. (If the site key is left as the placeholder, the
 widget is skipped and the server skips the check — handy for local testing.)
@@ -99,21 +115,17 @@ Follow the header comments in **`apps-script/rsvp.gs`**:
 2. Paste in `apps-script/rsvp.gs`; add a header row to the sheet.
 3. Script properties → add `RSVP_TOKEN` = the same value as `APPS_SCRIPT_TOKEN`.
 4. Deploy → New deployment → **Web app**, execute as **you**, access **Anyone**.
-5. Copy the `/exec` URL into the `APPS_SCRIPT_URL` env var (step 3).
+5. Copy the `/exec` URL into the `APPS_SCRIPT_URL` secret from step 4.
 
-## 7. Deploy
+## 7. Final verification
 
-Commit and push the branch, open a pull request, and let Cloudflare build the
-**preview** deployment first. Verify on the preview URL:
-
-- `/admin.html` → prompts for Access login; you can add/edit gatherings and
-  quotes and see them save.
+- `/admin.html` → Access login → you can add/edit gatherings and quotes and see
+  them save; the RSVPs tab loads.
 - The public site shows gatherings and quotes from the database.
 - A test RSVP on a free gathering lands in the **RSVPs** admin tab **and** in the
   Google Sheet.
 
-Then merge to `main` to go live. The previous deployment stays as a one-click
-rollback.
+Previous deployments stay as one-click rollbacks.
 
 ---
 
