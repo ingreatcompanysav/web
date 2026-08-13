@@ -35,6 +35,11 @@
   header code{background:rgba(255,250,240,.15);color:var(--cream);padding:1px 5px;border-radius:5px}
   .pill{display:inline-block;background:rgba(255,250,240,.15);border:1px solid rgba(255,250,240,.3);
     color:var(--cream);font-size:12px;padding:3px 10px;border-radius:999px}
+  .userbox{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .logout{display:inline-block;font-size:12px;font-weight:600;text-decoration:none;
+    color:var(--cream);background:transparent;border:1px solid rgba(255,250,240,.4);
+    padding:4px 12px;border-radius:999px;transition:.12s;white-space:nowrap}
+  .logout:hover{background:rgba(255,250,240,.14)}
 
   /* Tabs */
   .tabs{background:var(--ink-2);border-bottom:1px solid rgba(255,250,240,.15)}
@@ -151,7 +156,10 @@
       <h1>In Great Company — Admin</h1>
       <div class="sub">Gatherings, quotes &amp; RSVPs</div>
     </div>
-    <span class="pill" id="whoami">Secured by Cloudflare Access</span>
+    <div class="userbox">
+      <span class="pill" id="whoami">Secured by Cloudflare Access</span>
+      <a class="logout" href="/cdn-cgi/access/logout">Log out</a>
+    </div>
   </div>
 </header>
 
@@ -905,6 +913,12 @@ window.addEventListener("beforeunload", e=>{ if(dirty.events||dirty.quotes){ e.p
 
 /* ---- Category datalist ---- */
 $("#catlist").innerHTML = ["Slow morning","Ticketed","Outdoors","Free","Social"].map(c=>`<option value="${c}">`).join("");
+
+/* ---- Show who's signed in (Cloudflare Access identity) ---- */
+fetch("/cdn-cgi/access/get-identity")
+  .then(r => r.ok ? r.json() : null)
+  .then(d => { if (d && d.email) $("#whoami").textContent = "Signed in as " + d.email; })
+  .catch(() => {});
 
 /* ---- Boot ---- */
 (async function boot(){
