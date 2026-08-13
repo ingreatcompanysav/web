@@ -7,8 +7,8 @@
 import { json } from '../_shared/db.js';
 
 async function verifyTurnstile(env, token, ip) {
-  if (!env.TURNSTILE_SECRET) return true; // not configured (local dev) -> skip
-  if (!token) return false;
+  if (!env.TURNSTILE_SECRET) return { ok: true, reason: 'skipped' };
+  if (!token) return { ok: false, reason: 'no_token' };
   const form = new FormData();
   form.append('secret', env.TURNSTILE_SECRET);
   form.append('response', token);
@@ -19,9 +19,10 @@ async function verifyTurnstile(env, token, ip) {
       { method: 'POST', body: form }
     );
     const out = await res.json();
-    return !!out.success;
-  } catch {
-    return false;
+    if (out.success) return { ok: true, reason: 'verified' };
+    return { ok: false, reason: 'siteverify_failed', codes: out['error-codes'] || [] };
+  } catch (e) {
+    return { ok: false, reason: 'siteverify_error' };
   }
 }
 
@@ -53,8 +54,10 @@ export async function onRequestPost({ request, env }) {
   if (!name) return json({ ok: false, error: 'name_required' }, 400);
 
   const ip = request.headers.get('cf-connecting-ip') || '';
-  const ok = await verifyTurnstile(env, body.turnstileToken, ip);
-  if (!ok) return json({ ok: false, error: 'turnstile_failed' }, 403);
+  const ts = await verifyTurnstile(env, body.turnstileToken, ip);
+  if (!ts.ok) {
+    return json({ ok: false, error: 'turnstile_failed', reason: ts.reason, codes: ts.codes }, 403);
+  }
 
   const rsvp = {
     event_id: String(body.eventId || body.event_id || '').trim(),
