@@ -61,9 +61,7 @@ export async function onRequestPost({ request, env }) {
 
   const ip = request.headers.get('cf-connecting-ip') || '';
   const ts = await verifyTurnstile(env, body.turnstileToken, ip);
-  if (!ts.ok) {
-    return json({ ok: false, error: 'turnstile_failed', reason: ts.reason, codes: ts.codes }, 403);
-  }
+  if (!ts.ok) return json({ ok: false, error: 'turnstile_failed' }, 403);
 
   const rsvp = {
     event_id: String(body.eventId || body.event_id || '').trim(),
@@ -93,5 +91,5 @@ export async function onRequestPost({ request, env }) {
       .run();
   }
 
-  return json({ ok: true, sheet });
+  return json({ ok: true });
 }
