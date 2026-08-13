@@ -27,18 +27,24 @@ async function verifyTurnstile(env, token, ip) {
 }
 
 async function mirrorToSheet(env, payload) {
-  if (!env.APPS_SCRIPT_URL) return false;
+  if (!env.APPS_SCRIPT_URL) return { synced: false, reason: 'no_url' };
   try {
     const res = await fetch(env.APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ ...payload, token: env.APPS_SCRIPT_TOKEN || '' }),
     });
-    if (!res.ok) return false;
-    const out = await res.json().catch(() => ({}));
-    return out.ok !== false;
-  } catch {
-    return false;
+    const text = await res.text();
+    let out = null;
+    try { out = JSON.parse(text); } catch (e) {}
+    if (!res.ok) return { synced: false, reason: 'http_' + res.status, snippet: text.slice(0, 140) };
+    if (out && out.ok === true) return { synced: true, reason: 'ok' };
+    if (out && out.ok === false) return { synced: false, reason: 'script_rejected', error: out.error };
+    // Non-JSON body usually means a Google login/redirect page -> web-app
+    // access isn't set to "Anyone", or the URL is the /dev not /exec URL.
+    return { synced: false, reason: 'non_json_response', snippet: text.slice(0, 140) };
+  } catch (e) {
+    return { synced: false, reason: 'fetch_error', error: String(e) };
   }
 }
 
@@ -74,18 +80,18 @@ export async function onRequestPost({ request, env }) {
     .run();
   const rowId = inserted.meta && inserted.meta.last_row_id;
 
-  const synced = await mirrorToSheet(env, {
+  const sheet = await mirrorToSheet(env, {
     event_id: rsvp.event_id,
     name: rsvp.name,
     email: rsvp.email,
     guests: rsvp.guests,
     note: rsvp.note,
   });
-  if (synced && rowId) {
+  if (sheet.synced && rowId) {
     await env.DB.prepare('UPDATE rsvps SET synced_sheet = 1 WHERE id = ?')
       .bind(rowId)
       .run();
   }
 
-  return json({ ok: true });
+  return json({ ok: true, sheet });
 }
