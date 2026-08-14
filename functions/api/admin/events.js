@@ -34,12 +34,12 @@ export async function onRequestPost({ request, env }) {
   await env.DB.prepare(
     `INSERT INTO events
        (id, title, date, time, place, category, tone, price,
-        stripe_url, facebook_url, blurb, detail, note, sort_order, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'))`
+        stripe_url, facebook_url, blurb, detail, note, image, sort_order, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'))`
   )
     .bind(
       e.id, e.title, e.date, e.time, e.place, e.category, e.tone, e.price,
-      e.stripe_url, e.facebook_url, e.blurb, e.detail, e.note, e.sort_order
+      e.stripe_url, e.facebook_url, e.blurb, e.detail, e.note, e.image, e.sort_order
     )
     .run();
 

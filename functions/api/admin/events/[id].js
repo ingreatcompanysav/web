@@ -20,12 +20,12 @@ export async function onRequestPut({ request, env, params }) {
     `UPDATE events SET
        title = ?, date = ?, time = ?, place = ?, category = ?, tone = ?,
        price = ?, stripe_url = ?, facebook_url = ?, blurb = ?, detail = ?,
-       note = ?, sort_order = ?, updated_at = datetime('now')
+       note = ?, image = ?, sort_order = ?, updated_at = datetime('now')
      WHERE id = ?`
   )
     .bind(
       e.title, e.date, e.time, e.place, e.category, e.tone, e.price,
-      e.stripe_url, e.facebook_url, e.blurb, e.detail, e.note, e.sort_order, id
+      e.stripe_url, e.facebook_url, e.blurb, e.detail, e.note, e.image, e.sort_order, id
     )
     .run();
 

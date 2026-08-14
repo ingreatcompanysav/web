@@ -44,7 +44,7 @@ function eventCard(g, row) {
   const meta = [g.date, g.time, row ? g.place : null].filter(Boolean).join(' · ');
   return `<button type="button" class="event-card${row ? ' event-card--row' : ''}" data-action="open-event" data-id="${esc(g.id)}">
     <div class="event-card__media">
-      <span class="event-card__note">${esc(g.note || '')}</span>
+      ${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}" loading="lazy">` : `<span class="event-card__note">${esc(g.note || '')}</span>`}
       ${status ? `<span class="event-card__status">${tag(status, { tone: 'gold' })}</span>` : ''}
     </div>
     <div class="event-card__body">
@@ -248,7 +248,7 @@ function eventView(state) {
       <button class="back-link" data-action="go-gatherings">← All gatherings</button>
       <div class="event-detail">
         <div>
-          <div class="event-detail__media"><span class="event-detail__note">${esc(g.note || '')}</span></div>
+          <div class="event-detail__media">${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}">` : `<span class="event-detail__note">${esc(g.note || '')}</span>`}</div>
           <div class="igc-eyebrow event-detail__meta">${esc(meta)}</div>
           <h1 class="event-detail__title">${esc(g.title)}</h1>
           <p class="event-detail__prose">${esc(g.blurb || '')}</p>

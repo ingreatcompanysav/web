@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS events (
   blurb         TEXT    DEFAULT '',
   detail        TEXT    DEFAULT '',
   note          TEXT    DEFAULT '',
+  image         TEXT    DEFAULT '',
   sort_order    INTEGER DEFAULT 0,
   updated_at    TEXT    DEFAULT (datetime('now'))
 );

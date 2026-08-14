@@ -30,6 +30,7 @@ export const eventToPublic = (r) => ({
   blurb: r.blurb,
   detail: r.detail,
   note: r.note,
+  image: r.image || '',
 });
 
 // Admin shape adds ordering/metadata.
@@ -54,6 +55,7 @@ export const eventFromBody = (b = {}) => ({
   blurb: b.blurb ?? '',
   detail: b.detail ?? '',
   note: b.note ?? '',
+  image: b.image ?? '',
   sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
 });
 

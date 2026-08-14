@@ -142,6 +142,10 @@
   .photocard .mini.danger:hover{background:var(--rose-100)}
   .muted{color:var(--ink-2);font-size:14px;opacity:.75}
 
+  /* Event photo preview */
+  .imgprev{margin-top:8px}
+  .imgprev img{max-height:130px;max-width:100%;border-radius:12px;border:1px solid var(--line);display:block}
+
   /* RSVP table */
   .rsvp-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
   .rsvp-controls select{max-width:280px}
@@ -348,13 +352,13 @@ function slugify(s){
 /* =========================================================================
    EVENTS
    ========================================================================= */
-const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note"];
+const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image"];
 let events = [];
 let originalEventIds = new Set();
 const eOpen = {};
 const eventsListEl = $("#eventsList");
 
-function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"" }; }
+function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"" }; }
 
 function isoToDisplay(iso){
   if(!iso) return "";
@@ -527,7 +531,17 @@ function eventCardHTML(i){
         <div class="field-msg"></div>
       </div>
       <div class="field full">
-        <label>Note / photo <span class="hint">describe the photo, or paste an image URL</span></label>
+        <label>Photo <span class="hint">upload an image or paste a URL — shown on the card and event page</span></label>
+        <div class="row">
+          <input type="text" data-i="${i}" data-k="image" value="${escapeAttr(e.image)}" placeholder="https://…  — or use Upload →">
+          <button type="button" class="mini ghost" data-upimg-btn="${i}">Upload</button>
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-upimg="${i}" hidden>
+        </div>
+        <div class="imgprev" data-imgprev="${i}">${e.image?`<img src="${escapeAttr(e.image)}" alt="">`:""}</div>
+        <div class="field-msg" data-msg="image"></div>
+      </div>
+      <div class="field full">
+        <label>Photo caption <span class="hint">text shown only when there's no photo above</span></label>
         <textarea data-i="${i}" data-k="note" placeholder="Photo — ...">${escapeHtml(e.note)}</textarea>
         <div class="field-msg"></div>
       </div>
@@ -572,6 +586,33 @@ function setEventField(i, key, val){
   const inp = card && card.querySelector(`[data-k="${key}"]`);
   if(inp && inp.value !== String(val)) inp.value = val;
 }
+function updateImgPreview(i){
+  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
+  if(!card) return;
+  const prev = card.querySelector(`[data-imgprev="${i}"]`);
+  const url = (events[i].image||"").trim();
+  if(prev) prev.innerHTML = url ? `<img src="${escapeAttr(url)}" alt="">` : "";
+}
+async function uploadEventImage(idx, file){
+  const card = eventsListEl.querySelector(`.card[data-card="${idx}"]`);
+  const msg = card && card.querySelector('[data-msg="image"]');
+  const setMsg = (t,k)=>{ if(msg){ msg.textContent=t; msg.className="field-msg"+(k?" "+k:""); } };
+  try{
+    setMsg("Shrinking image…");
+    const {blob} = await resizeImage(file, 1400);
+    const fd = new FormData();
+    fd.append("file", blob, (file.name.replace(/\.[^.]+$/,"")||"event")+".jpg");
+    setMsg("Uploading…");
+    const r = await fetch("/api/admin/upload", { method:"POST", body:fd });
+    if(r.status===401 || r.status===403) throw new Error("Not signed in. Reload and log in.");
+    const data = await r.json().catch(()=>null);
+    if(!r.ok) throw new Error((data && data.error) ? data.error : ("HTTP "+r.status));
+    setEventField(idx, "image", data.url);
+    updateImgPreview(idx);
+    markDirty("events");
+    setMsg("Uploaded ✓");
+  }catch(err){ setMsg("Upload failed: "+err.message, "err"); }
+}
 
 eventsListEl.addEventListener("input", e=>{
   const el = e.target; const i = el.dataset.i;
@@ -586,12 +627,17 @@ eventsListEl.addEventListener("input", e=>{
   if(k === "title" && !(events[idx].id||"").trim()){
     setEventField(idx, "id", uniqueEventSlug(slugify(val), idx));
   }
+  if(k === "image") updateImgPreview(idx);
   applyEventValidation(idx); markDirty("events");
 });
 eventsListEl.addEventListener("change", e=>{
   const el = e.target;
   if(el.dataset.k === "tone" && el.dataset.i !== undefined){
     events[+el.dataset.i].tone = el.value; refreshEventHeader(+el.dataset.i); markDirty("events");
+  }
+  if(el.dataset.upimg !== undefined && el.files && el.files[0]){
+    uploadEventImage(+el.dataset.upimg, el.files[0]);
+    el.value = "";
   }
 });
 eventsListEl.addEventListener("focusout", e=>{
@@ -605,6 +651,11 @@ eventsListEl.addEventListener("focusout", e=>{
 });
 eventsListEl.addEventListener("click", e=>{
   const t = e.target;
+  if(t.dataset.upimgBtn !== undefined){
+    const inp = t.parentElement.querySelector("[data-upimg]");
+    if(inp) inp.click();
+    e.stopPropagation(); return;
+  }
   if(t.dataset.slug !== undefined){
     const idx = +t.dataset.slug;
     const from = (events[idx].title||"").trim() || (events[idx].id||"");
