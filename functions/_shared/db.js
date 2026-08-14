@@ -67,6 +67,7 @@ export const quoteToPublic = (r) => ({
   tone: r.tone,
   body: r.body,
   monogram: r.monogram || (r.name ? r.name.trim().charAt(0).toUpperCase() : ''),
+  avatar: r.avatar || '',
 });
 
 export const quoteToAdmin = (r) => ({
@@ -82,6 +83,7 @@ export const quoteFromBody = (b = {}) => ({
   tone: b.tone || 'cream',
   body: String(b.body || '').trim(),
   monogram: b.monogram ?? '',
+  avatar: b.avatar ?? '',
   active: b.active === 0 || b.active === false ? 0 : 1,
   sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
 });

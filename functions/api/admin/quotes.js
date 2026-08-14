@@ -26,10 +26,10 @@ export async function onRequestPost({ request, env }) {
   }
 
   const res = await env.DB.prepare(
-    `INSERT INTO quotes (name, detail, tone, body, monogram, active, sort_order, updated_at)
-     VALUES (?,?,?,?,?,?,?, datetime('now'))`
+    `INSERT INTO quotes (name, detail, tone, body, monogram, avatar, active, sort_order, updated_at)
+     VALUES (?,?,?,?,?,?,?,?, datetime('now'))`
   )
-    .bind(q.name, q.detail, q.tone, q.body, q.monogram, q.active, q.sort_order)
+    .bind(q.name, q.detail, q.tone, q.body, q.monogram, q.avatar, q.active, q.sort_order)
     .run();
 
   return json({ ok: true, id: res.meta && res.meta.last_row_id }, 201);

@@ -89,7 +89,7 @@ function ticketConfirmed(line) {
 
 function quoteCard(v) {
   const initial = (v.monogram || (v.name || '').trim().charAt(0) || '').toUpperCase();
-  const photo = AVATAR_BY_NAME[v.name];
+  const photo = v.avatar || AVATAR_BY_NAME[v.name];
   const avatar = photo
     ? `<span class="quote__avatar"><img src="${esc(photo)}" alt="${esc(v.name)}"></span>`
     : `<span class="quote__avatar" title="${esc(v.name)}">${esc(initial)}</span>`;

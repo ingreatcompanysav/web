@@ -101,6 +101,8 @@
     border:1px solid var(--line);border-radius:9px;padding:9px 11px;background:#fff;width:100%}
   input:focus,textarea:focus,select:focus{outline:2px solid var(--cyan);outline-offset:0;border-color:var(--cyan)}
   input.err{border-color:var(--rose);outline-color:var(--rose)}
+  input[readonly]{background:var(--paper);color:var(--ink-2);cursor:default}
+  input[readonly]:focus{outline:none;border-color:var(--line)}
   textarea{resize:vertical;min-height:64px}
   .row{display:flex;gap:8px;align-items:center}
   .row input[type=date],.row input[type=time]{max-width:180px;flex:0 0 auto}
@@ -400,6 +402,15 @@ function uniqueEventSlug(base, idx){
   while(taken.has(cand)){ n++; cand = `${base||"gathering"}-${n}`; }
   return cand;
 }
+// ISO date prefix (YYYY-MM-DD) put at the FRONT of the ID, so IDs sort
+// chronologically and recurring events (a second Paint & Sip) stay distinct.
+// e.g. "2026-08-18-paint-sip". Empty prefix if there's no valid date.
+function slugFor(idx){
+  const e = events[idx];
+  const base = slugify((e.title||"").trim() || (e.id||""));
+  const iso = displayToIso(e.date);
+  return uniqueEventSlug(iso && base ? iso + "-" + base : base, idx);
+}
 function validateEvent(i){
   const e = events[i];
   const errs = {}, warns = {};
@@ -460,11 +471,8 @@ function eventCardHTML(i){
     </div>
     <div class="card-body">
       <div class="field">
-        <label>ID <span class="req">*</span><span class="hint">short, unique — used in the web address</span></label>
-        <div class="row">
-          <input type="text" data-i="${i}" data-k="id" value="${escapeAttr(e.id)}" placeholder="e.g. long-table-dinner">
-          <button class="mini ghost" data-slug="${i}" title="Generate from the title">↻ from title</button>
-        </div>
+        <label>ID <span class="hint">auto-made from the title + date — used in the web address</span></label>
+        <input type="text" data-i="${i}" data-k="id" value="${escapeAttr(e.id)}" readonly tabindex="-1">
         <div class="field-msg" data-msg="id"></div>
       </div>
       <div class="field">
@@ -618,14 +626,18 @@ eventsListEl.addEventListener("input", e=>{
   const el = e.target; const i = el.dataset.i;
   if(i === undefined) return;
   const idx = +i, role = el.dataset.role, k = el.dataset.k;
-  if(role === "date-pick"){ setEventField(idx,"date", isoToDisplay(el.value)); applyEventValidation(idx); markDirty("events"); return; }
+  if(role === "date-pick"){
+    setEventField(idx,"date", isoToDisplay(el.value));
+    if(!originalEventIds.has(events[idx].id) && (events[idx].title||"").trim()) setEventField(idx,"id", slugFor(idx));
+    applyEventValidation(idx); markDirty("events"); return;
+  }
   if(role === "time-pick"){ setEventField(idx,"time", timeInputToDisplay(el.value)); applyEventValidation(idx); markDirty("events"); return; }
   if(k === undefined) return;
   let val = el.value;
   if(el.dataset.num) val = val === "" ? 0 : Number(val);
   events[idx][k] = val;
-  if(k === "title" && !(events[idx].id||"").trim()){
-    setEventField(idx, "id", uniqueEventSlug(slugify(val), idx));
+  if(k === "title" && !originalEventIds.has(events[idx].id)){
+    setEventField(idx, "id", slugFor(idx));
   }
   if(k === "image") updateImgPreview(idx);
   applyEventValidation(idx); markDirty("events");
@@ -640,27 +652,12 @@ eventsListEl.addEventListener("change", e=>{
     el.value = "";
   }
 });
-eventsListEl.addEventListener("focusout", e=>{
-  const el = e.target;
-  if(el.dataset.k === "id" && el.dataset.i !== undefined){
-    const idx = +el.dataset.i;
-    const cur = (events[idx].id||"").trim();
-    if(cur){ const clean = uniqueEventSlug(slugify(cur), idx); if(clean !== cur){ setEventField(idx,"id",clean); } }
-    applyEventValidation(idx);
-  }
-});
 eventsListEl.addEventListener("click", e=>{
   const t = e.target;
   if(t.dataset.upimgBtn !== undefined){
     const inp = t.parentElement.querySelector("[data-upimg]");
     if(inp) inp.click();
     e.stopPropagation(); return;
-  }
-  if(t.dataset.slug !== undefined){
-    const idx = +t.dataset.slug;
-    const from = (events[idx].title||"").trim() || (events[idx].id||"");
-    setEventField(idx, "id", uniqueEventSlug(slugify(from), idx));
-    applyEventValidation(idx); markDirty("events"); e.stopPropagation(); return;
   }
   if(t.dataset.up !== undefined){ moveEvent(+t.dataset.up,-1); e.stopPropagation(); return; }
   if(t.dataset.down !== undefined){ moveEvent(+t.dataset.down, 1); e.stopPropagation(); return; }
@@ -750,7 +747,7 @@ let originalQuoteIds = new Set();
 const qOpen = {};
 const quotesListEl = $("#quotesList");
 
-function blankQuote(){ return { id:null, name:"", detail:"", tone:"cream", body:"", monogram:"", active:1 }; }
+function blankQuote(){ return { id:null, name:"", detail:"", tone:"cream", body:"", monogram:"", avatar:"", active:1 }; }
 function validateQuote(i){
   const q = quotes[i]; const errs={};
   if(!(q.name||"").trim()) errs.name = "Name is required.";
@@ -806,9 +803,19 @@ function quoteCardHTML(i){
         <div class="field-msg"></div>
       </div>
       <div class="field">
-        <label>Monogram <span class="hint">optional — defaults to first letter</span></label>
+        <label>Monogram <span class="hint">shown when there's no photo — defaults to first letter</span></label>
         <input type="text" maxlength="2" data-qi="${i}" data-qk="monogram" value="${escapeAttr(q.monogram)}" placeholder="D">
         <div class="field-msg"></div>
+      </div>
+      <div class="field full">
+        <label>Photo <span class="hint">optional — their face instead of the monogram; upload or paste a URL</span></label>
+        <div class="row">
+          <input type="text" data-qi="${i}" data-qk="avatar" value="${escapeAttr(q.avatar)}" placeholder="https://…  — or use Upload →">
+          <button type="button" class="mini ghost" data-qupimg-btn="${i}">Upload</button>
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-qupimg="${i}" hidden>
+        </div>
+        <div class="imgprev" data-qimgprev="${i}">${q.avatar?`<img src="${escapeAttr(q.avatar)}" alt="">`:""}</div>
+        <div class="field-msg" data-qmsg="avatar"></div>
       </div>
       <div class="field full">
         <label>Quote <span class="req">*</span></label>
@@ -848,23 +855,55 @@ function refreshQuoteHeader(i){
   card.querySelector(".card-head .meta").textContent = (q.detail?q.detail+" · ":"")+preview;
   card.className = "card tone-"+tone+(qOpen[i]?" open":"")+(off?" inactive":"");
 }
+function updateQuoteImgPreview(i){
+  const card = quotesListEl.querySelector(`.card[data-qcard="${i}"]`);
+  if(!card) return;
+  const prev = card.querySelector(`[data-qimgprev="${i}"]`);
+  const url = (quotes[i].avatar||"").trim();
+  if(prev) prev.innerHTML = url ? `<img src="${escapeAttr(url)}" alt="">` : "";
+}
+async function uploadQuoteImage(idx, file){
+  const card = quotesListEl.querySelector(`.card[data-qcard="${idx}"]`);
+  const msg = card && card.querySelector('[data-qmsg="avatar"]');
+  const setMsg = (t,k)=>{ if(msg){ msg.textContent=t; msg.className="field-msg"+(k?" "+k:""); } };
+  try{
+    setMsg("Shrinking image…");
+    const {blob} = await resizeImage(file, 600);
+    const fd = new FormData();
+    fd.append("file", blob, (file.name.replace(/\.[^.]+$/,"")||"avatar")+".jpg");
+    setMsg("Uploading…");
+    const r = await fetch("/api/admin/upload", { method:"POST", body:fd });
+    if(r.status===401 || r.status===403) throw new Error("Not signed in. Reload and log in.");
+    const data = await r.json().catch(()=>null);
+    if(!r.ok) throw new Error((data && data.error) ? data.error : ("HTTP "+r.status));
+    quotes[idx].avatar = data.url;
+    const inp = card && card.querySelector('[data-qk="avatar"]');
+    if(inp) inp.value = data.url;
+    updateQuoteImgPreview(idx);
+    markDirty("quotes");
+    setMsg("Uploaded ✓");
+  }catch(err){ setMsg("Upload failed: "+err.message, "err"); }
+}
 quotesListEl.addEventListener("input", e=>{
   const el = e.target; const i = el.dataset.qi;
   if(i === undefined) return;
   const idx=+i, k=el.dataset.qk;
   if(k==="active") return; // checkbox handled on change
   quotes[idx][k] = el.value;
+  if(k==="avatar") updateQuoteImgPreview(idx);
   applyQuoteValidation(idx); refreshQuoteHeader(idx); markDirty("quotes");
 });
 quotesListEl.addEventListener("change", e=>{
   const el = e.target; const i = el.dataset.qi;
   if(i === undefined) return;
   const idx=+i, k=el.dataset.qk;
+  if(el.dataset.qupimg !== undefined && el.files && el.files[0]){ uploadQuoteImage(idx, el.files[0]); el.value=""; return; }
   if(k==="active"){ quotes[idx].active = el.checked?1:0; refreshQuoteHeader(idx); markDirty("quotes"); }
   else if(k==="tone"){ quotes[idx].tone = el.value; refreshQuoteHeader(idx); markDirty("quotes"); }
 });
 quotesListEl.addEventListener("click", e=>{
   const t = e.target;
+  if(t.dataset.qupimgBtn !== undefined){ const inp=t.parentElement.querySelector("[data-qupimg]"); if(inp) inp.click(); e.stopPropagation(); return; }
   if(t.dataset.qup !== undefined){ moveQuote(+t.dataset.qup,-1); e.stopPropagation(); return; }
   if(t.dataset.qdown !== undefined){ moveQuote(+t.dataset.qdown, 1); e.stopPropagation(); return; }
   if(t.dataset.qdel !== undefined){ delQuote(+t.dataset.qdel); e.stopPropagation(); return; }
@@ -901,7 +940,7 @@ async function loadQuotes(){
   try{
     setStatus("quotesStatus","Loading…");
     const data = await api("GET","/api/admin/quotes");
-    quotes = data.map(o=>({ id:o.id, name:o.name||"", detail:o.detail||"", tone:o.tone||"cream", body:o.body||"", monogram:o.monogram||"", active:o.active?1:0 }));
+    quotes = data.map(o=>({ id:o.id, name:o.name||"", detail:o.detail||"", tone:o.tone||"cream", body:o.body||"", monogram:o.monogram||"", avatar:o.avatar||"", active:o.active?1:0 }));
     originalQuoteIds = new Set(quotes.map(q=>q.id).filter(x=>x!=null));
     Object.keys(qOpen).forEach(k=>delete qOpen[k]);
     dirty.quotes = false;
@@ -921,7 +960,7 @@ async function saveQuotes(){
     // Create/update, capturing new ids so we can order them.
     const orderedIds = [];
     for(const q of quotes){
-      const payload = { name:q.name, detail:q.detail, tone:q.tone, body:q.body, monogram:q.monogram, active:q.active };
+      const payload = { name:q.name, detail:q.detail, tone:q.tone, body:q.body, monogram:q.monogram, avatar:q.avatar, active:q.active };
       if(q.id!=null){ await api("PUT","/api/admin/quotes/"+q.id, payload); orderedIds.push(q.id); }
       else { const r = await api("POST","/api/admin/quotes", payload); q.id = r.id; orderedIds.push(r.id); }
     }

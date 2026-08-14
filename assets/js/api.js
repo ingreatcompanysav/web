@@ -23,7 +23,7 @@ export async function loadEvents() {
 export async function loadVoices() {
   const d = await getJson('/api/quotes');
   const pool = d
-    ? d.map(q => ({ tone: q.tone, name: q.name, detail: q.detail, quote: q.body, monogram: q.monogram }))
+    ? d.map(q => ({ tone: q.tone, name: q.name, detail: q.detail, quote: q.body, monogram: q.monogram, avatar: q.avatar }))
     : FALLBACK_VOICES.slice();
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

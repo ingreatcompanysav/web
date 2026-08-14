@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS quotes (
   tone        TEXT    DEFAULT 'cream',
   body        TEXT NOT NULL,
   monogram    TEXT    DEFAULT '',   -- optional; falls back to first letter of name
+  avatar      TEXT    DEFAULT '',   -- optional photo; falls back to the monogram
   active      INTEGER DEFAULT 1,
   sort_order  INTEGER DEFAULT 0,
   updated_at  TEXT    DEFAULT (datetime('now'))

@@ -19,11 +19,11 @@ export async function onRequestPut({ request, env, params }) {
 
   await env.DB.prepare(
     `UPDATE quotes SET
-       name = ?, detail = ?, tone = ?, body = ?, monogram = ?,
+       name = ?, detail = ?, tone = ?, body = ?, monogram = ?, avatar = ?,
        active = ?, sort_order = ?, updated_at = datetime('now')
      WHERE id = ?`
   )
-    .bind(q.name, q.detail, q.tone, q.body, q.monogram, q.active, q.sort_order, id)
+    .bind(q.name, q.detail, q.tone, q.body, q.monogram, q.avatar, q.active, q.sort_order, id)
     .run();
 
   return json({ ok: true, id });
