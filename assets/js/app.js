@@ -164,12 +164,15 @@ function homeView(state) {
   </section>
 
   <section class="section section--page">
-    <div class="container section-head">
-      ${sectionHeading({ eyebrow: 'Follow along', title: 'The everyday, as it happens', script: 'here', size: 'xl', description: 'Instagram is where we live day to day. The site keeps it all in one place — the feed, the newsletter, and the calendar.' })}
-      <div class="cluster">
-        ${button({ label: '@ingreatcompanysav', variant: 'outline', action: 'open-instagram' })}
-        ${button({ label: 'Facebook Group', variant: 'outline', action: 'open-facebook' })}
+    <div class="container">
+      <div class="section-head">
+        ${sectionHeading({ eyebrow: 'Follow along', title: 'The everyday, as it happens', script: 'here', size: 'xl', description: 'Instagram is where we live day to day. The site keeps it all in one place — the feed, the newsletter, and the calendar.' })}
+        <div class="cluster">
+          ${button({ label: '@ingreatcompanysav', variant: 'outline', action: 'open-instagram' })}
+          ${button({ label: 'Facebook Group', variant: 'outline', action: 'open-facebook' })}
+        </div>
       </div>
+      ${state.photos.gallery && state.photos.gallery.length ? `<div class="gallery mt-8">${state.photos.gallery.map((p) => `<figure class="gallery__item"><img src="${esc(p.url)}" alt="${esc(p.alt || '')}" loading="lazy"></figure>`).join('')}</div>` : ''}
     </div>
   </section>
 

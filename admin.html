@@ -117,6 +117,31 @@
     border:2px dashed var(--line);border-radius:16px;background:var(--cream-2)}
   .empty h2{margin-bottom:8px}
 
+  /* Photos */
+  .uploader{background:var(--cream-2);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:18px;margin-bottom:24px}
+  .uploader .up-fields{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:14px 18px;margin-bottom:14px}
+  .uploader .toolbar{margin-bottom:0}
+  .slotgroup{margin-bottom:26px}
+  .slotgroup h3{font-family:Georgia,serif;font-size:18px;color:var(--ink);margin:0 0 12px;
+    display:flex;align-items:center;gap:8px}
+  .slotgroup h3 .count{font-family:-apple-system,sans-serif;font-size:12px;font-weight:700;
+    background:rgba(10,66,71,.1);color:var(--ink-2);padding:2px 9px;border-radius:999px}
+  .photogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+  .photocard{background:var(--cream-2);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+  .photocard.inactive{opacity:.55}
+  .photocard .thumb{aspect-ratio:1/1;background:var(--paper);overflow:hidden}
+  .photocard .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .photocard .alt{border:0;border-top:1px solid var(--line);border-radius:0;font-size:13px;
+    padding:9px 11px;background:#fff}
+  .photocard .alt:focus{outline:2px solid var(--cyan);outline-offset:-2px}
+  .photocard .row{gap:5px;padding:8px;flex-wrap:wrap;border-top:1px solid var(--line);background:var(--paper)}
+  .photocard .row .slotsel{width:auto;flex:1 1 auto;font-size:12.5px;padding:5px 7px;border-radius:8px}
+  .photocard .mini.danger{color:var(--rose-700);border-color:var(--rose-100)}
+  .photocard .mini.danger:hover{background:var(--rose-100)}
+  .muted{color:var(--ink-2);font-size:14px;opacity:.75}
+
   /* RSVP table */
   .rsvp-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
   .rsvp-controls select{max-width:280px}
@@ -167,6 +192,7 @@
   <div class="wrap">
     <button class="tab active" data-tab="events">Gatherings</button>
     <button class="tab" data-tab="quotes">Quotes</button>
+    <button class="tab" data-tab="photos">Photos</button>
     <button class="tab" data-tab="rsvps">RSVPs</button>
   </div>
 </div>
@@ -228,6 +254,44 @@
       <span class="status grow" id="rsvpsStatus"></span>
     </div>
     <div id="rsvpsTable"></div>
+  </section>
+
+  <!-- ============ PHOTOS ============ -->
+  <section class="panel" id="panel-photos">
+    <details class="help">
+      <summary>How this works</summary>
+      <ol>
+        <li>Upload photos that appear on the site. <b>Hero</b>, <b>Our Story</b>, and <b>Join</b> each show one of their photos at random on every visit — add a few and they rotate on their own.</li>
+        <li><b>Gallery</b> photos fill the grid in the “Follow along” section of the home page.</li>
+        <li>Everything here saves <b>immediately</b> — upload, reorder, hide, or delete, no separate save step. Photos are shrunk in your browser before upload, so large files are fine.</li>
+      </ol>
+    </details>
+    <div class="uploader">
+      <div class="up-fields">
+        <div class="field">
+          <label>Where should it go?</label>
+          <select id="photoSlot">
+            <option value="gallery">Gallery — the “Follow along” grid</option>
+            <option value="hero">Hero — big photo at the top of home</option>
+            <option value="story">Our Story — the square photo</option>
+            <option value="join">Join Us — the wide photo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Describe it <span class="hint">for screen readers</span></label>
+          <input type="text" id="photoAlt" placeholder="e.g. Members laughing at a porch dinner">
+        </div>
+        <div class="field">
+          <label>Image file</label>
+          <input type="file" id="photoFile" accept="image/png,image/jpeg,image/webp">
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="rose" id="uploadPhotoBtn">Upload photo</button>
+        <span class="status grow" id="photosStatus"></span>
+      </div>
+    </div>
+    <div id="photosList"></div>
   </section>
 
 </div>
@@ -869,6 +933,150 @@ $("#csvBtn").addEventListener("click", ()=>{
 });
 
 /* =========================================================================
+   PHOTOS — immediate-save (no savebar). Upload, reorder, hide, delete.
+   ========================================================================= */
+const PHOTO_SLOTS = ["hero","gallery","story","join"];
+const SLOT_LABELS = {
+  hero:"Hero — top of home", gallery:"Gallery — “Follow along” grid",
+  story:"Our Story photo", join:"Join Us photo"
+};
+const photosListEl = $("#photosList");
+let photos = [];
+
+// Shrink + re-encode the picked image in the browser so uploads stay small.
+function resizeImage(file, maxDim){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim/Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width*scale));
+      const h = Math.max(1, Math.round(img.height*scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      canvas.toBlob(b => b ? resolve({blob:b, width:w, height:h}) : reject(new Error("couldn’t process image")),
+        "image/jpeg", 0.85);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("that file isn’t a readable image")); };
+    img.src = url;
+  });
+}
+
+async function loadPhotos(){
+  try{
+    setStatus("photosStatus","Loading…");
+    photos = await api("GET","/api/admin/photos");
+    renderPhotos();
+    setStatus("photosStatus", `${photos.length} photo${photos.length!==1?"s":""}.`, "ok");
+  }catch(err){ setStatus("photosStatus","Couldn’t load: "+err.message,"warn"); }
+}
+
+function renderPhotos(){
+  const bySlot = {}; PHOTO_SLOTS.forEach(s=> bySlot[s]=[]);
+  photos.forEach(p=> (bySlot[p.slot] || (bySlot[p.slot]=[])).push(p));
+  photosListEl.innerHTML = PHOTO_SLOTS.map(slot=>{
+    const list = bySlot[slot] || [];
+    const cards = list.length
+      ? list.map((p,i)=> photoCardHTML(p, i, list.length)).join("")
+      : '<p class="muted">No photos here yet.</p>';
+    return `<div class="slotgroup">
+      <h3>${escapeHtml(SLOT_LABELS[slot])} <span class="count">${list.length}</span></h3>
+      <div class="photogrid">${cards}</div>
+    </div>`;
+  }).join("");
+}
+
+function photoCardHTML(p, idx, total){
+  return `<div class="photocard${p.active?"":" inactive"}" data-id="${p.id}">
+    <div class="thumb"><img src="${escapeAttr(p.url)}" alt="${escapeAttr(p.alt)}" loading="lazy"></div>
+    <input class="alt" type="text" data-id="${p.id}" value="${escapeAttr(p.alt)}" placeholder="Describe the photo">
+    <div class="row">
+      <select class="slotsel" data-id="${p.id}">${PHOTO_SLOTS.map(s=>`<option value="${s}"${s===p.slot?" selected":""}>${s}</option>`).join("")}</select>
+      <button class="mini" data-act="up" data-id="${p.id}"${idx===0?" disabled":""} title="Move up">↑</button>
+      <button class="mini" data-act="down" data-id="${p.id}"${idx===total-1?" disabled":""} title="Move down">↓</button>
+      <button class="mini" data-act="toggle" data-id="${p.id}">${p.active?"Hide":"Show"}</button>
+      <button class="mini danger" data-act="del" data-id="${p.id}">Delete</button>
+    </div>
+  </div>`;
+}
+
+async function uploadPhoto(){
+  const file = $("#photoFile").files[0];
+  if(!file){ setStatus("photosStatus","Choose an image first.","warn"); return; }
+  const btn = $("#uploadPhotoBtn");
+  try{
+    btn.disabled = true;
+    setStatus("photosStatus","Shrinking image…");
+    const {blob, width, height} = await resizeImage(file, 1600);
+    const fd = new FormData();
+    fd.append("file", blob, (file.name.replace(/\.[^.]+$/,"") || "photo") + ".jpg");
+    fd.append("slot", $("#photoSlot").value);
+    fd.append("alt", $("#photoAlt").value.trim());
+    fd.append("width", width);
+    fd.append("height", height);
+    setStatus("photosStatus","Uploading…");
+    const res = await fetch("/api/admin/photos", { method:"POST", body:fd });
+    if(res.status===401 || res.status===403) throw new Error("Not signed in. Reload and log in.");
+    const data = await res.json().catch(()=>null);
+    if(!res.ok) throw new Error((data && data.error) ? data.error : ("HTTP "+res.status));
+    $("#photoFile").value = ""; $("#photoAlt").value = "";
+    await loadPhotos();
+    setStatus("photosStatus","Uploaded ✓","ok");
+  }catch(err){ setStatus("photosStatus","Upload failed: "+err.message,"warn"); }
+  finally{ btn.disabled = false; }
+}
+
+async function savePhoto(id, patch){
+  try{
+    setStatus("photosStatus","Saving…");
+    await api("PUT","/api/admin/photos/"+id, patch);
+    const p = photos.find(x=> String(x.id)===String(id)); if(p) Object.assign(p, patch);
+    setStatus("photosStatus","Saved ✓","ok");
+  }catch(err){ setStatus("photosStatus","Save failed: "+err.message,"warn"); }
+}
+
+async function deletePhoto(id){
+  try{
+    setStatus("photosStatus","Deleting…");
+    await api("DELETE","/api/admin/photos/"+id);
+    await loadPhotos();
+    setStatus("photosStatus","Deleted ✓","ok");
+  }catch(err){ setStatus("photosStatus","Delete failed: "+err.message,"warn"); }
+}
+
+async function reorderPhoto(id, dir){
+  const p = photos.find(x=> String(x.id)===String(id)); if(!p) return;
+  const list = photos.filter(x=> x.slot===p.slot); // load order == sort order
+  const i = list.findIndex(x=> String(x.id)===String(id));
+  const j = dir==="up" ? i-1 : i+1;
+  if(j<0 || j>=list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  try{
+    setStatus("photosStatus","Reordering…");
+    await api("POST","/api/admin/reorder", { type:"photos", order:list.map(x=> x.id) });
+    await loadPhotos();
+    setStatus("photosStatus","Reordered ✓","ok");
+  }catch(err){ setStatus("photosStatus","Reorder failed: "+err.message,"warn"); }
+}
+
+$("#uploadPhotoBtn").addEventListener("click", uploadPhoto);
+photosListEl.addEventListener("change", (e)=>{
+  const t = e.target, id = t.dataset.id;
+  if(!id) return;
+  if(t.classList.contains("alt")) savePhoto(id, { alt:t.value.trim() });
+  else if(t.classList.contains("slotsel")) savePhoto(id, { slot:t.value }).then(loadPhotos);
+});
+photosListEl.addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-act]"); if(!btn) return;
+  const id = btn.dataset.id, act = btn.dataset.act;
+  if(act==="del"){ if(confirm("Delete this photo? This can’t be undone.")) deletePhoto(id); }
+  else if(act==="toggle"){ const p = photos.find(x=> String(x.id)===String(id)); if(p) savePhoto(id, { active: !p.active }).then(loadPhotos); }
+  else if(act==="up" || act==="down"){ reorderPhoto(id, act); }
+});
+
+/* =========================================================================
    Tabs, save bar, status
    ========================================================================= */
 function setStatus(id, msg, kind){ const el=$("#"+id); if(!el) return; el.textContent=msg||""; el.className="status grow"+(kind?" "+kind:""); }
@@ -881,6 +1089,7 @@ function switchTab(tab){
   const showSave = (tab==="events"||tab==="quotes");
   $("#savebar").style.display = showSave ? "" : "none";
   if(tab==="rsvps") loadRsvps();
+  if(tab==="photos") loadPhotos();
   updateSaveInfo();
   window.scrollTo({top:0});
 }
