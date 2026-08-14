@@ -117,6 +117,39 @@ Follow the header comments in **`apps-script/rsvp.gs`**:
 4. Deploy → New deployment → **Web app**, execute as **you**, access **Anyone**.
 5. Copy the `/exec` URL into the `APPS_SCRIPT_URL` secret from step 4.
 
+## 6b. Photos storage (R2) — for the rotating photos
+
+The admin can upload photos that rotate on the site (hero, story, join) and fill
+a gallery grid. The image files live in a Cloudflare **R2** bucket; their
+metadata lives in the `photos` table in D1.
+
+1. **Bucket.** The bucket **`igcsav`** already exists in this account. To confirm
+   or recreate: dashboard → **R2 → Create bucket** → name it `igcsav`. Keep it
+   **private** (no public access needed; the site serves images through a
+   Function).
+2. **Binding.** `wrangler.toml` already declares `binding = "PHOTOS"` →
+   `igcsav`, so local dev and deploys pick it up. For production, also add it in
+   the dashboard: Pages project → **Settings → Functions → R2 bindings** →
+   variable name `PHOTOS`, bucket `igcsav`.
+3. **Tables.** Re-run the schema so the new `photos` table is created (safe to
+   re-run; it uses `IF NOT EXISTS`):
+
+   ```bash
+   npx wrangler d1 execute igc --local  --file=./db/schema.sql
+   npx wrangler d1 execute igc --remote --file=./db/schema.sql
+   ```
+
+That is all the setup. The endpoints come with the next deploy:
+
+- Public `GET /api/photos` returns active photos grouped by slot.
+- Images stream from `GET /img/<key>` (public, cached one year).
+- Admin `GET/POST /api/admin/photos` and `PUT/DELETE /api/admin/photos/:id` are
+  gated by the same Access rule as the rest of `/api/admin/*`. The admin page
+  resizes each image in the browser before upload, so stored files stay small.
+
+Until a photo is uploaded to a slot, the site shows its built-in image, so
+nothing breaks in the meantime.
+
 ## 7. Final verification
 
 - `/admin.html` → Access login → you can add/edit gatherings and quotes and see

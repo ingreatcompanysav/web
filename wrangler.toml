@@ -15,3 +15,10 @@ binding = "DB"
 database_name = "igc"
 # Fill this in after `npx wrangler d1 create igc` prints the database_id:
 database_id = "24b04f1c-cb8b-4392-a605-dc32dfb11006"
+
+# R2 bucket for uploaded rotating photos. The bucket "igcsav" already exists.
+# In production the binding is ALSO set in the dashboard
+# (Pages project -> Settings -> Functions -> R2 bindings), which is authoritative.
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "igcsav"

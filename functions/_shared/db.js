@@ -84,6 +84,31 @@ export const quoteFromBody = (b = {}) => ({
   sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
 });
 
+// --- photos -----------------------------------------------------------------
+export const PHOTO_SLOTS = ['hero', 'gallery', 'story', 'join'];
+
+// Binary lives in R2; we serve it through the /img/<key> function.
+export const photoUrl = (r) => '/img/' + r.r2_key;
+
+export const photoToPublic = (r) => ({
+  id: r.id,
+  slot: r.slot,
+  url: photoUrl(r),
+  alt: r.alt || '',
+});
+
+export const photoToAdmin = (r) => ({
+  ...photoToPublic(r),
+  key: r.r2_key,
+  contentType: r.content_type,
+  width: r.width,
+  height: r.height,
+  bytes: r.bytes,
+  active: r.active,
+  sortOrder: r.sort_order,
+  createdAt: r.created_at,
+});
+
 // --- rsvps ------------------------------------------------------------------
 export const rsvpToAdmin = (r) => ({
   id: r.id,

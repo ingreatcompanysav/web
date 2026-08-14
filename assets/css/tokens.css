@@ -1,0 +1,210 @@
+/* ==========================================================================
+   In Great Company — design tokens
+   Ported verbatim from the original compiled bundle's design system, then the
+   dark-teal theme override is applied on top (that override is what actually
+   ships on the live site — it remaps the page ground from cream to teal).
+   ========================================================================== */
+
+/* ---- Base palette (brand sheet, exact) + derived ramps -------------------- */
+:root{
+  --igc-coffee:#33190A;   /* Dark Coffee   */
+  --igc-rose:#EF2E9F;     /* Electric Rose */
+  --igc-cyan:#3CDFE2;     /* Strong Cyan   */
+  --igc-teal:#0A4247;     /* Dark Teal     */
+  --igc-gold:#EFD61A;     /* Golden Glow   */
+
+  --rose-100:#FDE4F2;--rose-200:#FBC4E2;--rose-300:#F783C4;--rose-400:#F455B0;
+  --rose-500:#EF2E9F;--rose-600:#CE1E86;--rose-700:#A3186A;--rose-800:#75114C;--rose-900:#4A0B30;
+
+  --cyan-100:#E3FBFB;--cyan-200:#BDF5F6;--cyan-300:#8DEDEF;--cyan-400:#5FE5E7;
+  --cyan-500:#3CDFE2;--cyan-600:#22B9BC;--cyan-700:#188E91;--cyan-800:#116769;--cyan-900:#0B4446;
+
+  --gold-100:#FDF8D6;--gold-200:#FAF0A7;--gold-300:#F6E56E;--gold-400:#F2DD3C;
+  --gold-500:#EFD61A;--gold-600:#CDB60E;--gold-700:#A08D0B;--gold-800:#736608;--gold-900:#4B4205;
+
+  --teal-100:#DCEDEE;--teal-200:#B0D5D8;--teal-300:#77B2B6;--teal-400:#3B8288;
+  --teal-500:#166A70;--teal-600:#0F5459;--teal-700:#0A4247;--teal-800:#073136;--teal-900:#041F22;
+
+  --coffee-50:#FBF6F2;--coffee-100:#F3E9E1;--coffee-200:#E4D2C6;--coffee-300:#CBB0A0;
+  --coffee-400:#A9846E;--coffee-500:#7E5A42;--coffee-600:#5B3D28;--coffee-700:#33190A;
+  --coffee-800:#251207;--coffee-900:#170B04;
+
+  --cream-50:#FFFDF8;--cream-100:#FFFAF0;--cream-200:#FAF2E6;--cream-300:#F1E5D6;
+  --white:#FFFFFF;
+
+  /* semantic aliases */
+  --text-body:var(--coffee-700);
+  --text-strong:var(--coffee-800);
+  --text-muted:var(--coffee-500);
+  --text-subtle:var(--coffee-400);
+  --text-inverse:var(--cream-100);
+  --text-on-rose:var(--white);
+  --text-on-cyan:var(--teal-700);
+  --text-on-gold:var(--coffee-700);
+  --text-link:var(--rose-600);
+  --text-link-hover:var(--rose-700);
+
+  --surface-page:var(--cream-100);
+  --surface-card:var(--white);
+  --surface-sunk:var(--cream-200);
+  --surface-accent:var(--cyan-100);
+  --surface-accent-warm:var(--gold-100);
+  --surface-accent-rose:var(--rose-100);
+  --surface-deep:var(--teal-700);
+  --surface-ink:var(--coffee-700);
+  --surface-overlay:rgba(35,17,7,.55);
+
+  --brand-primary:var(--igc-rose);
+  --brand-primary-hover:var(--rose-600);
+  --brand-primary-press:var(--rose-700);
+  --brand-secondary:var(--igc-cyan);
+  --brand-secondary-hover:var(--cyan-600);
+  --brand-secondary-press:var(--cyan-700);
+  --brand-tertiary:var(--igc-gold);
+  --brand-deep:var(--igc-teal);
+
+  --border-hairline:rgba(51,25,10,.10);
+  --border-soft:var(--coffee-200);
+  --border-strong:var(--coffee-700);
+  --border-focus:var(--igc-cyan);
+
+  --state-success:var(--cyan-700);
+  --state-success-surface:var(--cyan-100);
+  --state-attention:var(--gold-700);
+  --state-attention-surface:var(--gold-100);
+  --state-alert:var(--rose-700);
+  --state-alert-surface:var(--rose-100);
+  --state-info:var(--teal-500);
+  --state-info-surface:var(--teal-100);
+  --state-disabled-bg:var(--coffee-100);
+  --state-disabled-fg:var(--coffee-300);
+
+  --wash-sunrise:linear-gradient(135deg,var(--cyan-100) 0%,var(--cream-100) 48%,var(--rose-100) 100%);
+  --wash-golden:linear-gradient(160deg,var(--gold-100) 0%,var(--cream-100) 70%);
+  --scrim-bottom:linear-gradient(to top,rgba(35,17,7,.72) 0%,rgba(35,17,7,.28) 45%,rgba(35,17,7,0) 100%);
+}
+
+/* ---- Typography ----------------------------------------------------------- */
+:root{
+  --font-display:"Playfair Display",Georgia,"Times New Roman",serif;
+  --font-body:"Montserrat","Helvetica Neue",Arial,sans-serif;
+  --font-script:"Kolker Brush","Caveat","Brush Script MT",cursive;
+
+  --weight-light:300;--weight-regular:400;--weight-medium:500;--weight-semibold:600;--weight-bold:700;--weight-black:800;
+
+  --text-display-xxl:clamp(48px,7.2vw,88px);
+  --text-display-xl:clamp(40px,5.4vw,68px);
+  --text-display-l:clamp(34px,4vw,52px);
+  --text-display-m:38px;
+  --text-display-s:28px;
+  --leading-display:1.04;
+  --tracking-display:-0.02em;
+
+  --text-heading-l:24px;
+  --text-heading-m:20px;
+  --text-heading-s:17px;
+  --leading-heading:1.28;
+  --tracking-heading:-0.005em;
+
+  --text-body-l:19px;
+  --text-body-m:16px;
+  --text-body-s:14px;
+  --leading-body:1.68;
+  --leading-body-tight:1.5;
+
+  --text-eyebrow:12px;
+  --tracking-eyebrow:0.16em;
+  --text-caption:13px;
+  --tracking-caption:0.02em;
+
+  --text-script-xl:96px;
+  --text-script-l:64px;
+  --text-script-m:44px;
+  --leading-script:0.9;
+
+  --measure-prose:62ch;
+  --measure-narrow:42ch;
+}
+
+/* ---- Spacing -------------------------------------------------------------- */
+:root{
+  --space-0:0;--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;
+  --space-6:32px;--space-7:40px;--space-8:48px;--space-9:64px;--space-10:80px;--space-11:96px;--space-12:128px;
+
+  --gap-inline:12px;
+  --gap-stack:16px;
+  --gap-card:24px;
+  --pad-card:28px;
+  --pad-card-tight:20px;
+  --section-y:96px;
+  --section-y-sm:56px;
+}
+
+/* ---- Radii + borders ------------------------------------------------------ */
+:root{
+  --radius-xs:6px;--radius-sm:10px;--radius-md:16px;--radius-lg:24px;--radius-xl:36px;
+  --radius-2xl:48px;--radius-pill:999px;--radius-circle:50%;
+  --radius-blob:56% 44% 52% 48% / 48% 52% 48% 52%;
+  --border-w-hair:1px;--border-w:1.5px;--border-w-thick:2px;
+}
+
+/* ---- Shadows -------------------------------------------------------------- */
+:root{
+  --shadow-none:none;
+  --shadow-xs:0 1px 2px rgba(51,25,10,.06);
+  --shadow-sm:0 2px 6px -1px rgba(51,25,10,.08);
+  --shadow-md:0 8px 20px -8px rgba(51,25,10,.16);
+  --shadow-lg:0 20px 44px -14px rgba(51,25,10,.20);
+  --shadow-xl:0 32px 72px -20px rgba(51,25,10,.26);
+  --shadow-lift:0 16px 32px -12px rgba(51,25,10,.22);
+  --shadow-inset-top:inset 0 1px 0 rgba(255,255,255,.6);
+  --focus-ring:0 0 0 3px rgba(60,223,226,.65);
+  --focus-ring-rose:0 0 0 3px rgba(239,46,159,.35);
+  --blur-glass:saturate(1.15) blur(14px);
+  --glass-fill:rgba(255,250,240,.72);
+}
+
+/* ---- Motion --------------------------------------------------------------- */
+:root{
+  --dur-instant:100ms;--dur-fast:160ms;--dur-base:240ms;--dur-slow:360ms;--dur-lazy:560ms;
+  --ease-soft:cubic-bezier(.22,.61,.36,1);
+  --ease-inout:cubic-bezier(.45,.05,.55,.95);
+  --ease-bounce:cubic-bezier(.34,1.56,.64,1);
+  --transition-base:all var(--dur-base) var(--ease-soft);
+  --transition-color:background-color var(--dur-fast) var(--ease-soft),color var(--dur-fast) var(--ease-soft),border-color var(--dur-fast) var(--ease-soft);
+  --hover-lift:translateY(-2px);
+  --press-scale:scale(.97);
+}
+
+/* ---- Layout --------------------------------------------------------------- */
+:root{
+  --width-page:1200px;--width-wide:1440px;--width-prose:720px;
+  --gutter:24px;--gutter-lg:48px;--nav-height:76px;--tabbar-height:84px;--touch-min:44px;
+  --z-base:0;--z-raised:10;--z-sticky:100;--z-overlay:900;--z-modal:1000;--z-toast:1100;
+}
+
+/* ==========================================================================
+   Dark-teal theme override — remaps surface + ink tokens; brand hues untouched.
+   This is what actually ships on the live site.
+   ========================================================================== */
+:root{
+  --surface-page:#0A4247;
+  --surface-sunk:#083539;
+  --surface-deep:#062A2E;
+  --white:#0F5257;
+  --surface-card:#0F5257;
+  --surface-accent:#12595F;
+  --border-soft:rgba(255,250,240,.28);
+  --border-strong:rgba(255,250,240,.55);
+  --text-strong:#FFFAF0;
+  --text-body:rgba(255,250,240,.92);
+  --text-muted:rgba(255,250,240,.72);
+  --cream-100:#FFFAF0;
+  --cream-200:rgba(255,250,240,.10);
+  --coffee-400:rgba(255,250,240,.6);
+  --border-hairline:rgba(255,250,240,.18);
+  --wash-sunrise:linear-gradient(135deg,#0f5a5f 0%,#0A4247 58%,#14494f 100%);
+  --wash-golden:linear-gradient(160deg,#10555a 0%,#0A4247 70%);
+  --glass-fill:rgba(10,66,71,.82);
+  --font-script:"Sisterhood",cursive;
+}

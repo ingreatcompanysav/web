@@ -1,0 +1,99 @@
+/* ==========================================================================
+   In Great Company — base element styles.
+   Playfair Display, Montserrat, Kolker Brush load from Google Fonts (see the
+   <link> in index). "Sisterhood" is a custom face with no web source, so it is
+   self-hosted here.
+   ========================================================================== */
+
+@font-face{
+  font-family:"Sisterhood";
+  src:url("/assets/fonts/sisterhood.ttf") format("truetype");
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+
+html{scroll-behavior:smooth}
+
+body{
+  margin:0;
+  background:var(--surface-page);
+  color:var(--text-body);
+  font-family:var(--font-body);
+  font-size:var(--text-body-m);
+  line-height:var(--leading-body);
+  -webkit-font-smoothing:antialiased;
+  text-wrap:pretty;
+  overflow-x:hidden;
+}
+
+h1,h2,h3{
+  font-family:var(--font-display);
+  font-weight:var(--weight-medium);
+  line-height:var(--leading-display);
+  letter-spacing:var(--tracking-display);
+  color:var(--text-strong);
+  margin:0;
+}
+h4,h5,h6{
+  font-family:var(--font-body);
+  font-weight:var(--weight-semibold);
+  line-height:var(--leading-heading);
+  color:var(--text-strong);
+  margin:0;
+}
+h1{font-size:var(--text-display-xl)}
+h2{font-size:var(--text-display-l)}
+h3{font-size:var(--text-display-s)}
+h4{font-size:var(--text-heading-l)}
+h5{font-size:var(--text-heading-m)}
+h6{font-size:var(--text-heading-s)}
+
+p{margin:0 0 var(--gap-stack)}
+
+a{
+  color:var(--text-link);
+  text-decoration-color:color-mix(in oklch,var(--text-link) 40%,transparent);
+  text-underline-offset:3px;
+  transition:var(--transition-color);
+}
+a:hover{color:var(--text-link-hover);text-decoration-color:currentColor}
+
+strong{font-weight:var(--weight-semibold)}
+em{font-style:italic}
+small{font-size:var(--text-body-s)}
+
+::selection{background:var(--cyan-200);color:var(--coffee-700)}
+:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+
+hr{border:0;border-top:var(--border-w-hair) solid var(--border-hairline);margin:var(--space-6) 0}
+img{max-width:100%;display:block}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* teal-theme link colors (match the live override) */
+a{color:var(--igc-cyan)}
+a:hover{color:var(--igc-rose)}
+
+/* ---- shared utility classes ---------------------------------------------- */
+.igc-eyebrow{
+  font-family:var(--font-body);
+  font-size:var(--text-eyebrow);
+  font-weight:var(--weight-semibold);
+  letter-spacing:var(--tracking-eyebrow);
+  text-transform:uppercase;
+  color:var(--text-muted);
+}
+.igc-script{
+  font-family:var(--font-script);
+  font-weight:400;
+  line-height:var(--leading-script);
+  /* Sisterhood glyphs ride high — drop them onto the baseline (matches live) */
+  transform:rotate(-3deg) translateY(0.16em);
+}
+
+@keyframes igcFade{from{opacity:0}to{opacity:1}}
+@keyframes igcRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes igcLift{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
