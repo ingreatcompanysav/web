@@ -4,7 +4,11 @@
 import { json, rsvpToAdmin } from '../../_shared/db.js';
 
 const csvCell = (v) => {
-  const s = v == null ? '' : String(v);
+  let s = v == null ? '' : String(v);
+  // Neutralize spreadsheet formula injection: cells starting with =, +, -, @
+  // (or tab/CR) are treated as formulas by Excel/Sheets/Numbers. RSVP fields
+  // come from the public endpoint, so prefix a single quote to force text.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
