@@ -93,14 +93,22 @@ function ticketConfirmed(line) {
     </div>`;
 }
 
-// Paid gathering with no checkout URL yet: never take a money-less RSVP through
-// the free path — say so plainly and point at where the link will appear.
-function ticketPending(price) {
+// Paid gathering with no Stripe checkout: never take a money-less RSVP through the
+// free path. If the event has a Facebook event, send people there for tickets;
+// otherwise point at Instagram until the link goes up.
+function ticketPending(g) {
+  const fb = (g.facebookUrl || '').trim();
+  const note = fb
+    ? 'Tickets and details live on the Facebook event — tap through to save your spot.'
+    : 'Ticketing for this gathering opens soon. Follow along and we\'ll share the link the moment seats go live.';
+  const cta = fb
+    ? button({ label: 'See The Facebook Event', variant: 'outline', size: 'lg', full: true, action: 'open-fb-event', id: fb })
+    : button({ label: 'Follow For The Link', variant: 'outline', size: 'lg', full: true, action: 'open-instagram' });
   return `
     <div class="igc-eyebrow">Tickets</div>
-    <h2 class="ticket__head">$${price} a seat</h2>
-    <p class="ticket__note">Ticketing for this gathering opens soon. Follow along and we'll share the link the moment seats go live.</p>
-    <div class="ticket__actions">${button({ label: 'Follow For The Link', variant: 'outline', size: 'lg', full: true, action: 'open-instagram' })}</div>
+    <h2 class="ticket__head">$${g.price} a seat</h2>
+    <p class="ticket__note">${esc(note)}</p>
+    <div class="ticket__actions">${cta}</div>
     <p class="ticket__fine">Can't wait? Email us at <a href="${LINKS.email}" style="color:inherit">${LINKS.emailText}</a> and we'll hold you a seat.</p>`;
 }
 
@@ -283,7 +291,7 @@ function eventView(state) {
     : state.purchased
     ? ticketConfirmed(price ? `Receipt for ${total} is on its way to your inbox.` : `We’ve got you down for ${state.qty}.`)
     : ticketingUnavailable
-    ? ticketPending(price)
+    ? ticketPending(g)
     : ticketBuy({
         priceLabel: price ? 'Tickets' : 'Free to come',
         priceHead: price ? `$${price} a seat` : 'Just tell us you’re coming',
@@ -466,6 +474,7 @@ document.addEventListener('click', (e) => {
     case 'go-story': go('story'); break;
     case 'open-instagram': window.open(LINKS.instagram, '_blank', 'noopener'); break;
     case 'open-facebook': window.open(LINKS.facebook, '_blank', 'noopener'); break;
+    case 'open-fb-event': if (id) window.open(id, '_blank', 'noopener'); break;
     case 'open-event': location.hash = `#event/${id}`; break;
     case 'inc-qty': state.qty = Math.min(6, state.qty + 1); render(); refocusSeat('inc-qty'); break;
     case 'dec-qty': state.qty = Math.max(1, state.qty - 1); render(); refocusSeat('dec-qty'); break;
