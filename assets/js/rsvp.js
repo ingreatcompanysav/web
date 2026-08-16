@@ -70,6 +70,7 @@ function build() {
         '<div data-igc="ts" style="min-height:0"></div>' +
         '<div data-igc="msg" style="font-size:13px;min-height:18px"></div>' +
         '<button type="submit" data-igc="submit" style="border:0;background:' + ROSE + ';color:' + INK_ON_ROSE + ';font:inherit;font-weight:600;font-size:15px;padding:12px;border-radius:10px;cursor:pointer">Send RSVP</button>' +
+        '<p style="font-size:11px;line-height:1.5;text-align:center;margin:0;color:' + INK + ';opacity:.6">By RSVPing, you confirm you’re 21 or older and agree we can email you about this event. We never sell your info. <a href="#privacy" style="color:inherit">Privacy Policy</a></p>' +
       '</form>' +
     '</div>';
   document.body.appendChild(el);

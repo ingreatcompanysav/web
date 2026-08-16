@@ -1,5 +1,5 @@
 // In Great Company — client app. Recreates the original SPA (routes: home,
-// gatherings, event, story) as modular, data-driven views.
+// gatherings, event, story, privacy) as modular, data-driven views.
 import { loadEvents, loadVoices, loadPhotos } from './api.js';
 import { AVATAR_BY_NAME, VALUES, LINKS } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
@@ -130,7 +130,7 @@ function navBar(active) {
     `<button class="nav__link${active === r ? ' is-active' : ''}" data-nav="${r}">${l}</button>`).join('');
   return `<nav class="nav" id="nav">
     <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream.png" alt="In Great Company"></button>
-    <div class="nav__links">${links}${button({ label: 'Save My Seat', size: 'sm', action: 'go-gatherings' })}</div>
+    <div class="nav__links">${links}${button({ label: 'See Gatherings', size: 'sm', action: 'go-gatherings' })}</div>
   </nav>`;
 }
 
@@ -153,7 +153,7 @@ function footer() {
         <a class="footer__link" href="${LINKS.email}">${LINKS.emailText}</a>
       </div>
     </div>
-    <div class="footer__bar"><span>Savannah, Georgia</span><span>Women first, always.</span></div>
+    <div class="footer__bar"><span>Savannah, Georgia</span><button class="footer__link" data-nav="privacy" style="background:none;border:0;cursor:pointer;font:inherit;color:inherit">Privacy Policy</button><span>Women first, always.</span></div>
   </footer>`;
 }
 
@@ -182,7 +182,7 @@ function homeView(state) {
   <section class="section section--page">
     <div class="container">
       <div class="section-head">
-        ${sectionHeading({ eyebrow: 'Follow along', title: 'The everyday, as it happens', script: 'here', size: 'xl', description: 'Instagram is where we live day to day. The site keeps it all in one place — the feed, the newsletter, and the calendar.' })}
+        ${sectionHeading({ eyebrow: 'Follow along', title: 'The everyday, as it happens', script: 'here', size: 'xl', description: 'Instagram is where we live day to day — the feed, the faces, the last-minute plans. Everything coming up lives on the calendar right here.' })}
         <div class="cluster">
           ${button({ label: '@ingreatcompanysav', variant: 'outline', action: 'open-instagram' })}
           ${button({ label: 'Facebook Group', variant: 'outline', action: 'open-facebook' })}
@@ -311,6 +311,57 @@ function storyView() {
   </section>`;
 }
 
+function privacyView() {
+  return `
+  <section class="story-hero">
+    <div class="story-hero__inner">
+      <div class="igc-eyebrow">The fine print</div>
+      <h1 class="story-hero__title">Privacy Policy</h1>
+      <p class="story-hero__lead">Short version: we collect just enough to save you a seat and keep you in the loop about our gatherings. We never sell your information, and we never share it to anyone outside In Great Company.</p>
+    </div>
+  </section>
+  <section class="section section--page">
+    <div class="container">
+      <div class="legal">
+        <p class="legal__updated">Last updated: August 2026</p>
+
+        <p>In Great Company (“we,” “us,” or “our”) is a women’s social group based in Savannah, Georgia. This policy explains what information we collect through <strong>ingreatcompanysav.com</strong>, why we collect it, and the choices you have.</p>
+
+        <h2>What we collect</h2>
+        <p>When you RSVP to a gathering, we ask for:</p>
+        <ul>
+          <li><strong>Your name</strong> — so we know who’s coming.</li>
+          <li><strong>Your email address</strong> (optional) — so we can send you details and updates about the gathering you signed up for.</li>
+          <li><strong>Number of guests</strong> — so we can plan the right amount of space.</li>
+          <li><strong>Any note you add</strong> — anything you’d like us to know, shared at your discretion.</li>
+        </ul>
+        <p>We only collect what you choose to type into the RSVP form. We don’t use tracking cookies or third-party advertising trackers on this site.</p>
+
+        <h2>How we use it</h2>
+        <p>We use your information solely to organize our gatherings — confirming your RSVP, planning for the number of attendees, and contacting you about the event you signed up for or future In Great Company events.</p>
+
+        <h2>What we never do</h2>
+        <p>We do not sell, rent, or trade your information. We do not share it with advertisers or any third party outside of what’s needed to run the site and communicate with you (for example, the secure services that host our website and store RSVPs on our behalf).</p>
+
+        <h2>How your information is stored</h2>
+        <p>RSVPs are stored using reputable third-party service providers (such as Cloudflare) that host our website and database. We take reasonable steps to keep your information secure, though no method of storage is ever completely guaranteed.</p>
+
+        <h2>Your choices</h2>
+        <p>You’re always in control of your information. If you’d like us to update or delete what we have on file, just email us at <a href="${LINKS.email}">${LINKS.emailText}</a> and we’ll take care of it. If we ever send you event emails, every one will include a way to unsubscribe.</p>
+
+        <h2>Age</h2>
+        <p>Our gatherings are for adults, and many of our events include alcohol. By RSVPing, you confirm that you are 21 or older.</p>
+
+        <h2>Changes to this policy</h2>
+        <p>If we update this policy, we’ll revise the “last updated” date above. Meaningful changes will be reflected here on this page.</p>
+
+        <h2>Contact us</h2>
+        <p>Questions about your privacy or this policy? Reach us anytime at <a href="${LINKS.email}">${LINKS.emailText}</a>. 💛</p>
+      </div>
+    </div>
+  </section>`;
+}
+
 // Fallback only (event id that no longer exists).
 function placeholderView(title, sub) {
   return `<section class="section section--page" style="min-height:52vh;display:grid;place-items:center">
@@ -346,6 +397,7 @@ function viewFor(route) {
     case 'home': return homeView(state);
     case 'gatherings': return gatheringsView(state);
     case 'story': return storyView();
+    case 'privacy': return privacyView();
     case 'event': return eventView(state);
     default: return homeView(state);
   }
