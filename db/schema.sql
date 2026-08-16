@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS events (
   detail        TEXT    DEFAULT '',
   note          TEXT    DEFAULT '',
   image         TEXT    DEFAULT '',
+  -- Placement on the public site: 'upcoming' (main sections), 'past' (the
+  -- "Past gatherings" section), or 'hidden' (draft/cancelled — shown nowhere).
+  status        TEXT    DEFAULT 'upcoming',
   sort_order    INTEGER DEFAULT 0,
   updated_at    TEXT    DEFAULT (datetime('now'))
 );

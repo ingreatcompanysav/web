@@ -31,11 +31,15 @@ export const eventToPublic = (r) => ({
   detail: r.detail,
   note: r.note,
   image: r.image || '',
+  // Hidden events are filtered out server-side; the site only needs to know
+  // whether what it received belongs in the "Past gatherings" section.
+  past: r.status === 'past',
 });
 
-// Admin shape adds ordering/metadata.
+// Admin shape adds placement/ordering/metadata.
 export const eventToAdmin = (r) => ({
   ...eventToPublic(r),
+  status: r.status || 'upcoming',
   sortOrder: r.sort_order,
   updatedAt: r.updated_at,
 });
@@ -56,6 +60,7 @@ export const eventFromBody = (b = {}) => ({
   detail: b.detail ?? '',
   note: b.note ?? '',
   image: b.image ?? '',
+  status: ['upcoming', 'past', 'hidden'].includes(b.status) ? b.status : 'upcoming',
   sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
 });
 

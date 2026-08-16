@@ -130,6 +130,26 @@
 .event-card__title{font-family:var(--font-display);font-weight:var(--weight-medium);font-size:25px;line-height:1.14;letter-spacing:-.015em;color:var(--text-strong);margin:0}
 .event-card__blurb{font-size:var(--text-body-s);line-height:1.6;color:var(--text-muted);margin:0}
 
+/* ---- Past gatherings (collapsible) --------------------------------------- */
+.past-gatherings{border-top:1px solid var(--border-hairline);padding-top:var(--space-6)}
+.past-gatherings__summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:var(--space-2)}
+.past-gatherings__summary::-webkit-details-marker{display:none}
+.past-gatherings__title{
+  display:flex;align-items:center;gap:var(--space-3);
+  font-family:var(--font-display);font-weight:var(--weight-medium);
+  font-size:var(--text-heading-l);color:var(--text-strong)
+}
+.past-gatherings__title::after{content:"▸";margin-left:auto;color:var(--text-subtle);font-size:14px;transition:transform var(--dur-slow) var(--ease-soft)}
+.past-gatherings[open] .past-gatherings__title::after{transform:rotate(90deg)}
+.past-gatherings__count{
+  font-family:var(--font-body);font-size:var(--text-body-s);font-weight:var(--weight-semibold);
+  color:var(--text-muted);background:var(--border-hairline);border-radius:999px;padding:1px 10px
+}
+.past-gatherings__list{display:flex;flex-direction:column;gap:var(--space-5);margin-top:var(--space-6)}
+/* Past cards read as gently archived, not current. */
+.past-gatherings__list .event-card{opacity:.72}
+.past-gatherings__list .event-card:hover{opacity:1}
+
 /* ---- Quote ---------------------------------------------------------------- */
 .quote{
   margin:0;background:var(--surface-card);color:var(--text-body);
@@ -156,7 +176,6 @@
 .hero__title{font-family:var(--font-display);font-weight:var(--weight-medium);font-size:var(--text-display-xl);line-height:var(--leading-display);letter-spacing:var(--tracking-display);margin:var(--space-4) 0 0;text-wrap:pretty}
 .hero__lead{font-size:var(--text-body-l);line-height:var(--leading-body);color:var(--text-muted);max-width:42ch;margin:var(--space-6) 0 0}
 .hero__actions{display:flex;gap:var(--space-3);margin-top:var(--space-7);flex-wrap:wrap}
-.hero__tags{display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-8)}
 .hero__media{aspect-ratio:4/5;background:var(--cyan-200);border-radius:var(--radius-blob);overflow:hidden}
 .hero__media img{width:100%;height:100%;object-fit:cover;border-radius:var(--radius-blob)}
 

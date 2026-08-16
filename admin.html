@@ -353,13 +353,13 @@ function slugify(s){
 /* =========================================================================
    EVENTS
    ========================================================================= */
-const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image"];
+const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","status"];
 let events = [];
 let originalEventIds = new Set();
 const eOpen = {};
 const eventsListEl = $("#eventsList");
 
-function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"" }; }
+function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",status:"upcoming" }; }
 
 function isoToDisplay(iso){
   if(!iso) return "";
@@ -451,10 +451,13 @@ function eventCardHTML(i){
   const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
   const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
   const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
-  const badge = hasErr ? '<span class="badge err">needs fixing</span>'
-                       : (hasWarn ? '<span class="badge warnb">check</span>' : '');
+  const st = e.status || "upcoming";
+  const badge = (hasErr ? '<span class="badge err">needs fixing</span>'
+                        : (hasWarn ? '<span class="badge warnb">check</span>' : ''))
+                + (st==="past" ? ' <span class="badge off">past</span>'
+                 : st==="hidden" ? ' <span class="badge off">hidden</span>' : '');
   return `
-  <div class="card tone-${tone}${eOpen[i]?" open":""}${hasErr?" has-error":""}" data-card="${i}">
+  <div class="card tone-${tone}${eOpen[i]?" open":""}${hasErr?" has-error":""}${st==="hidden"?" inactive":""}" data-card="${i}">
     <div class="card-head" data-toggle="${i}">
       <div>
         <div class="title">${escapeHtml(e.title||"(untitled)")} ${badge}</div>
@@ -552,6 +555,15 @@ function eventCardHTML(i){
         <textarea data-i="${i}" data-k="note" placeholder="Photo — ...">${escapeHtml(e.note)}</textarea>
         <div class="field-msg"></div>
       </div>
+      <div class="field full">
+        <label>Placement on the site <span class="hint">where this gathering shows up — no need to delete past ones</span></label>
+        <select data-i="${i}" data-k="status">
+          <option value="upcoming" ${st==="upcoming"?"selected":""}>Upcoming — in the main gatherings</option>
+          <option value="past" ${st==="past"?"selected":""}>Past gathering — in the “Past gatherings” section</option>
+          <option value="hidden" ${st==="hidden"?"selected":""}>Hidden — not shown on the site</option>
+        </select>
+        <div class="field-msg"></div>
+      </div>
     </div>
   </div>`;
 }
@@ -578,14 +590,17 @@ function refreshEventHeader(i){
   const e = events[i];
   const v = validateEvent(i);
   const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
+  const st = e.status || "upcoming";
   const tone = TONES.includes(e.tone) ? e.tone : "cyan";
-  const badge = hasErr ? '<span class="badge err">needs fixing</span>'
-                       : (hasWarn ? '<span class="badge warnb">check</span>' : '');
+  const badge = (hasErr ? '<span class="badge err">needs fixing</span>'
+                        : (hasWarn ? '<span class="badge warnb">check</span>' : ''))
+              + (st==="past" ? ' <span class="badge off">past</span>'
+               : st==="hidden" ? ' <span class="badge off">hidden</span>' : '');
   card.querySelector(".card-head .title").innerHTML = escapeHtml(e.title||"(untitled)")+" "+badge;
   const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
   const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
   card.querySelector(".card-head .meta").textContent = metaBits + (metaBits?" · ":"") + priceLabel;
-  card.className = "card tone-"+tone+(eOpen[i]?" open":"")+(hasErr?" has-error":"");
+  card.className = "card tone-"+tone+(eOpen[i]?" open":"")+(hasErr?" has-error":"")+(st==="hidden"?" inactive":"");
 }
 function setEventField(i, key, val){
   events[i][key] = val;
@@ -643,8 +658,8 @@ eventsListEl.addEventListener("input", e=>{
 });
 eventsListEl.addEventListener("change", e=>{
   const el = e.target;
-  if(el.dataset.k === "tone" && el.dataset.i !== undefined){
-    events[+el.dataset.i].tone = el.value; refreshEventHeader(+el.dataset.i); markDirty("events");
+  if((el.dataset.k === "tone" || el.dataset.k === "status") && el.dataset.i !== undefined){
+    events[+el.dataset.i][el.dataset.k] = el.value; refreshEventHeader(+el.dataset.i); markDirty("events");
   }
   if(el.dataset.upimg !== undefined && el.files && el.files[0]){
     uploadEventImage(+el.dataset.upimg, el.files[0]);

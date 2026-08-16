@@ -47,7 +47,7 @@ function mediaPlaceholder(g) {
 }
 
 function eventCard(g, row) {
-  const status = statusOf(g);
+  const status = g.past ? null : statusOf(g);
   const meta = [g.date, g.time, row ? g.place : null].filter(Boolean).join(' · ');
   return `<button type="button" class="event-card${row ? ' event-card--row' : ''}" data-action="open-event" data-id="${esc(g.id)}">
     <div class="event-card__media">
@@ -102,6 +102,17 @@ function ticketPending(price) {
     <p class="ticket__note">Ticketing for this gathering opens soon. Follow along and we'll share the link the moment seats go live.</p>
     <div class="ticket__actions">${button({ label: 'Follow For The Link', variant: 'outline', size: 'lg', full: true, action: 'open-instagram' })}</div>
     <p class="ticket__fine">Can't wait? Email us at <a href="${LINKS.email}" style="color:inherit">${LINKS.emailText}</a> and we'll hold you a seat.</p>`;
+}
+
+// A gathering that has already happened: no RSVP, just a warm nudge toward
+// what's next.
+function ticketPast() {
+  return `
+    <div class="igc-eyebrow">Looking back</div>
+    <h2 class="ticket__head">This one's already happened. 💛</h2>
+    <p class="ticket__note">We had a lovely time. Catch the next one — see what's coming up, or follow along so you don't miss the next plan.</p>
+    <div class="ticket__actions">${button({ label: "See What's Coming Up", size: 'lg', full: true, action: 'go-gatherings' })}</div>
+    <p class="ticket__fine">Follow <a href="${LINKS.instagram}" style="color:inherit" target="_blank" rel="noopener noreferrer">@ingreatcompanysav</a> for last-minute gatherings.</p>`;
 }
 
 function quoteCard(v) {
@@ -159,7 +170,7 @@ function footer() {
 
 /* ---------------------------------------------------------------- views */
 function homeView(state) {
-  const featured = state.events.slice(0, 3);
+  const featured = state.events.filter((g) => !g.past).slice(0, 3);
   return `
   <section class="hero">
     <div class="hero__grid">
@@ -170,9 +181,6 @@ function homeView(state) {
         <div class="hero__actions">
           ${button({ label: "See What's Coming Up", size: 'lg', action: 'go-gatherings' })}
           ${button({ label: 'Read Our Story', variant: 'outline', size: 'lg', action: 'go-story' })}
-        </div>
-        <div class="hero__tags">
-          ${tag('All ages', { outlined: true })}${tag('Come alone', { outlined: true })}${tag('Bring a friend', { outlined: true })}${tag('No small talk required', { outlined: true })}
         </div>
       </div>
       <div class="hero__media"><img src="${esc(state.photos.hero || '/assets/img/photo-hero.jpg')}" alt="In Great Company members laughing together on a sailboat in Savannah"></div>
@@ -229,6 +237,8 @@ function homeView(state) {
 }
 
 function gatheringsView(state) {
+  const upcoming = state.events.filter((g) => !g.past);
+  const past = state.events.filter((g) => g.past);
   return `
   <section class="section" style="background:var(--wash-golden);padding:72px var(--gutter-lg) 64px">
     <div class="container">
@@ -237,9 +247,25 @@ function gatheringsView(state) {
   </section>
   <section class="section section--page" style="padding:var(--space-9) var(--gutter-lg) var(--section-y)">
     <div class="container" style="display:flex;flex-direction:column;gap:var(--space-5)">
-      ${state.events.map((g) => eventCard(g, true)).join('')}
+      ${upcoming.length
+        ? upcoming.map((g) => eventCard(g, true)).join('')
+        : `<p class="prose-lead" style="text-align:center;margin-inline:auto">Nothing on the calendar this very minute — check back soon, or follow along on Instagram for the next last-minute plan.</p>`}
     </div>
-  </section>`;
+  </section>
+  ${past.length ? `
+  <section class="section section--sunk" style="padding:var(--space-8) var(--gutter-lg) var(--section-y)">
+    <div class="container">
+      <details class="past-gatherings">
+        <summary class="past-gatherings__summary">
+          <span class="igc-eyebrow">Looking back</span>
+          <span class="past-gatherings__title">Past gatherings <span class="past-gatherings__count">${past.length}</span></span>
+        </summary>
+        <div class="past-gatherings__list">
+          ${past.map((g) => eventCard(g, true)).join('')}
+        </div>
+      </details>
+    </div>
+  </section>` : ''}`;
 }
 
 function eventView(state) {
@@ -252,7 +278,9 @@ function eventView(state) {
   const total = price ? `$${price * state.qty}` : 'Free';
   // A paid event with no Stripe link must not silently become a free RSVP.
   const ticketingUnavailable = price > 0 && !g.stripeUrl;
-  const panel = state.purchased
+  const panel = g.past
+    ? ticketPast()
+    : state.purchased
     ? ticketConfirmed(price ? `Receipt for ${total} is on its way to your inbox.` : `We’ve got you down for ${state.qty}.`)
     : ticketingUnavailable
     ? ticketPending(price)

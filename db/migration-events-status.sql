@@ -1,0 +1,11 @@
+-- Migration: add events.status so each gathering can be placed as
+--   'upcoming' (main sections), 'past' (the "Past gatherings" section),
+--   or 'hidden' (draft/cancelled — shown nowhere), without deleting it.
+-- Existing rows default to 'upcoming'.
+--
+-- Apply:  npx wrangler d1 execute igc --local  --file=./db/migration-events-status.sql
+--         npx wrangler d1 execute igc --remote --file=./db/migration-events-status.sql
+--
+-- SQLite has no "ADD COLUMN IF NOT EXISTS"; run this once. Re-running errors
+-- harmlessly with "duplicate column name: status".
+ALTER TABLE events ADD COLUMN status TEXT DEFAULT 'upcoming';

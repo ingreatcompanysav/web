@@ -3,8 +3,10 @@
 import { json, eventToPublic } from '../_shared/db.js';
 
 export async function onRequestGet({ env }) {
+  // Everything except hidden (draft/cancelled). Past events are returned too —
+  // the site buckets them into its "Past gatherings" section.
   const { results } = await env.DB.prepare(
-    'SELECT * FROM events ORDER BY sort_order ASC, rowid ASC'
+    "SELECT * FROM events WHERE status != 'hidden' ORDER BY sort_order ASC, rowid ASC"
   ).all();
   return json((results || []).map(eventToPublic));
 }
