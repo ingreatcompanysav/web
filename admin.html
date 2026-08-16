@@ -353,13 +353,20 @@ function slugify(s){
 /* =========================================================================
    EVENTS
    ========================================================================= */
-const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","status"];
+const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden"];
 let events = [];
 let originalEventIds = new Set();
 const eOpen = {};
 const eventsListEl = $("#eventsList");
 
-function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",status:"upcoming" }; }
+function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0 }; }
+// A dated gathering counts as past once its calendar day is over (local time).
+function isEventPast(e){
+  const iso = e.eventDate || "";
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return new Date(iso+"T00:00:00") < today;
+}
 
 function isoToDisplay(iso){
   if(!iso) return "";
@@ -451,13 +458,13 @@ function eventCardHTML(i){
   const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
   const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
   const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
-  const st = e.status || "upcoming";
+  const past = isEventPast(e), hid = !!e.hidden;
   const badge = (hasErr ? '<span class="badge err">needs fixing</span>'
                         : (hasWarn ? '<span class="badge warnb">check</span>' : ''))
-                + (st==="past" ? ' <span class="badge off">past</span>'
-                 : st==="hidden" ? ' <span class="badge off">hidden</span>' : '');
+                + (hid ? ' <span class="badge off">hidden</span>' : '')
+                + (past ? ' <span class="badge off">past</span>' : '');
   return `
-  <div class="card tone-${tone}${eOpen[i]?" open":""}${hasErr?" has-error":""}${st==="hidden"?" inactive":""}" data-card="${i}">
+  <div class="card tone-${tone}${eOpen[i]?" open":""}${hasErr?" has-error":""}${hid?" inactive":""}" data-card="${i}">
     <div class="card-head" data-toggle="${i}">
       <div>
         <div class="title">${escapeHtml(e.title||"(untitled)")} ${badge}</div>
@@ -492,10 +499,11 @@ function eventCardHTML(i){
       <div class="field">
         <label>Date</label>
         <div class="row">
-          <input type="date" data-i="${i}" data-role="date-pick" value="${escapeAttr(displayToIso(e.date))}">
+          <input type="date" data-i="${i}" data-role="date-pick" value="${escapeAttr(e.eventDate || displayToIso(e.date))}">
           <input type="text" data-i="${i}" data-k="date" value="${escapeAttr(e.date)}" placeholder="Sun, Aug 16">
         </div>
         <div class="field-msg" data-msg="date"></div>
+        <div class="hint" style="margin-top:6px">Set the real date so this gathering moves to “Past” on its own after it happens.</div>
       </div>
       <div class="field">
         <label>Time</label>
@@ -556,13 +564,10 @@ function eventCardHTML(i){
         <div class="field-msg"></div>
       </div>
       <div class="field full">
-        <label>Placement on the site <span class="hint">where this gathering shows up — no need to delete past ones</span></label>
-        <select data-i="${i}" data-k="status">
-          <option value="upcoming" ${st==="upcoming"?"selected":""}>Upcoming — in the main gatherings</option>
-          <option value="past" ${st==="past"?"selected":""}>Past gathering — in the “Past gatherings” section</option>
-          <option value="hidden" ${st==="hidden"?"selected":""}>Hidden — not shown on the site</option>
-        </select>
-        <div class="field-msg"></div>
+        <div class="checkrow">
+          <input type="checkbox" id="ehidden-${i}" data-i="${i}" data-k="hidden" ${e.hidden?"checked":""}>
+          <label for="ehidden-${i}">Hide this gathering <span class="hint">— for a draft or a cancelled event; it won't show anywhere on the site. Past events drop off on their own by date.</span></label>
+        </div>
       </div>
     </div>
   </div>`;
@@ -590,17 +595,17 @@ function refreshEventHeader(i){
   const e = events[i];
   const v = validateEvent(i);
   const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
-  const st = e.status || "upcoming";
+  const past = isEventPast(e), hid = !!e.hidden;
   const tone = TONES.includes(e.tone) ? e.tone : "cyan";
   const badge = (hasErr ? '<span class="badge err">needs fixing</span>'
                         : (hasWarn ? '<span class="badge warnb">check</span>' : ''))
-              + (st==="past" ? ' <span class="badge off">past</span>'
-               : st==="hidden" ? ' <span class="badge off">hidden</span>' : '');
+              + (hid ? ' <span class="badge off">hidden</span>' : '')
+              + (past ? ' <span class="badge off">past</span>' : '');
   card.querySelector(".card-head .title").innerHTML = escapeHtml(e.title||"(untitled)")+" "+badge;
   const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
   const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
   card.querySelector(".card-head .meta").textContent = metaBits + (metaBits?" · ":"") + priceLabel;
-  card.className = "card tone-"+tone+(eOpen[i]?" open":"")+(hasErr?" has-error":"")+(st==="hidden"?" inactive":"");
+  card.className = "card tone-"+tone+(eOpen[i]?" open":"")+(hasErr?" has-error":"")+(hid?" inactive":"");
 }
 function setEventField(i, key, val){
   events[i][key] = val;
@@ -641,12 +646,14 @@ eventsListEl.addEventListener("input", e=>{
   if(i === undefined) return;
   const idx = +i, role = el.dataset.role, k = el.dataset.k;
   if(role === "date-pick"){
+    events[idx].eventDate = el.value; // real ISO date — drives auto past/upcoming
     setEventField(idx,"date", isoToDisplay(el.value));
     if(!originalEventIds.has(events[idx].id) && (events[idx].title||"").trim()) setEventField(idx,"id", slugFor(idx));
     applyEventValidation(idx); markDirty("events"); return;
   }
   if(role === "time-pick"){ setEventField(idx,"time", timeInputToDisplay(el.value)); applyEventValidation(idx); markDirty("events"); return; }
   if(k === undefined) return;
+  if(k === "hidden") return; // checkbox handled on change
   let val = el.value;
   if(el.dataset.num) val = val === "" ? 0 : Number(val);
   events[idx][k] = val;
@@ -658,8 +665,11 @@ eventsListEl.addEventListener("input", e=>{
 });
 eventsListEl.addEventListener("change", e=>{
   const el = e.target;
-  if((el.dataset.k === "tone" || el.dataset.k === "status") && el.dataset.i !== undefined){
-    events[+el.dataset.i][el.dataset.k] = el.value; refreshEventHeader(+el.dataset.i); markDirty("events");
+  if(el.dataset.k === "tone" && el.dataset.i !== undefined){
+    events[+el.dataset.i].tone = el.value; refreshEventHeader(+el.dataset.i); markDirty("events");
+  }
+  if(el.dataset.k === "hidden" && el.dataset.i !== undefined){
+    events[+el.dataset.i].hidden = el.checked?1:0; refreshEventHeader(+el.dataset.i); markDirty("events");
   }
   if(el.dataset.upimg !== undefined && el.files && el.files[0]){
     uploadEventImage(+el.dataset.upimg, el.files[0]);

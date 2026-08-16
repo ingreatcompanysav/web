@@ -25,9 +25,12 @@ CREATE TABLE IF NOT EXISTS events (
   detail        TEXT    DEFAULT '',
   note          TEXT    DEFAULT '',
   image         TEXT    DEFAULT '',
-  -- Placement on the public site: 'upcoming' (main sections), 'past' (the
-  -- "Past gatherings" section), or 'hidden' (draft/cancelled — shown nowhere).
-  status        TEXT    DEFAULT 'upcoming',
+  -- Real calendar date (ISO 'YYYY-MM-DD') used to auto-place a gathering as
+  -- upcoming vs past. Empty = undated (TBD), always treated as upcoming.
+  -- `date`/`time` above stay the human display strings shown on the site.
+  event_date    TEXT    DEFAULT '',
+  -- Manual hide for drafts/cancelled events — shown nowhere when 1.
+  hidden        INTEGER DEFAULT 0,
   sort_order    INTEGER DEFAULT 0,
   updated_at    TEXT    DEFAULT (datetime('now'))
 );

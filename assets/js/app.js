@@ -246,7 +246,10 @@ function homeView(state) {
 
 function gatheringsView(state) {
   const upcoming = state.events.filter((g) => !g.past);
-  const past = state.events.filter((g) => g.past);
+  // Past gatherings read best most-recent-first (by real date when we have it).
+  const past = state.events
+    .filter((g) => g.past)
+    .sort((a, b) => (b.eventDate || '').localeCompare(a.eventDate || ''));
   return `
   <section class="section" style="background:var(--wash-golden);padding:72px var(--gutter-lg) 64px">
     <div class="container">

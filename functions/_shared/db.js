@@ -31,15 +31,17 @@ export const eventToPublic = (r) => ({
   detail: r.detail,
   note: r.note,
   image: r.image || '',
-  // Hidden events are filtered out server-side; the site only needs to know
-  // whether what it received belongs in the "Past gatherings" section.
-  past: r.status === 'past',
+  eventDate: r.event_date || '',
+  // `is_past` is computed by the public query (event_date vs today). Hidden
+  // events are filtered out server-side; the site only buckets past vs upcoming.
+  past: !!r.is_past,
 });
 
-// Admin shape adds placement/ordering/metadata.
+// Admin shape adds the raw hide flag + ordering/metadata. (`eventDate`/`past`
+// already come from eventToPublic; admin computes past client-side for display.)
 export const eventToAdmin = (r) => ({
   ...eventToPublic(r),
-  status: r.status || 'upcoming',
+  hidden: r.hidden ? 1 : 0,
   sortOrder: r.sort_order,
   updatedAt: r.updated_at,
 });
@@ -60,7 +62,9 @@ export const eventFromBody = (b = {}) => ({
   detail: b.detail ?? '',
   note: b.note ?? '',
   image: b.image ?? '',
-  status: ['upcoming', 'past', 'hidden'].includes(b.status) ? b.status : 'upcoming',
+  // Accept only a clean ISO date; anything else stores empty (undated).
+  event_date: /^\d{4}-\d{2}-\d{2}$/.test(b.eventDate || '') ? b.eventDate : '',
+  hidden: b.hidden === 1 || b.hidden === true ? 1 : 0,
   sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
 });
 
