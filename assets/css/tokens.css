@@ -207,4 +207,12 @@
   --wash-golden:linear-gradient(160deg,#10555a 0%,#0A4247 70%);
   --glass-fill:rgba(10,66,71,.82);
   --font-script:"Sisterhood",cursive;
+
+  /* Contrast-safe brand text (WCAG AA). The vivid --igc-rose stays the fill and
+     the large script accent; these carry the rose identity where small text or
+     tight surfaces would otherwise fail. */
+  --ink-on-rose:#03191B;            /* deep ink on a rose fill — 4.8:1 on #EF2E9F */
+  --brand-on-dark:#F9A8D4;          /* legible rose for small text on dark teal — ≥4.5:1 on page + card */
+  --brand-script:#F76BB8;           /* the script-accent word — vivid, but clears 3:1 large-text on dark */
+  --surface-rose:var(--rose-600);   /* rose band that lets white text clear AA */
 }

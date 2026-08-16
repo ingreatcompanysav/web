@@ -6,7 +6,25 @@ const TURNSTILE_SITEKEY = '0x4AAAAAAEOiex7_1tN6hBFC';
 const hasTurnstile = TURNSTILE_SITEKEY && TURNSTILE_SITEKEY.indexOf('REPLACE_') !== 0;
 
 const INK = '#0A4247', ROSE = '#EF2E9F', CREAM = '#FFFAF0', LINE = 'rgba(10,66,71,.18)';
-let el = null, tokenEl = null, token = '', tsWidget = null, current = null;
+const INK_ON_ROSE = '#03191B';   // deep ink on the rose submit button — WCAG AA
+const ROSE_TEXT = '#A3186A';     // darker rose for error text on the cream card
+let el = null, tokenEl = null, token = '', tsWidget = null, current = null, lastFocused = null;
+
+const isOpen = () => el && el.style.display === 'flex';
+
+// Keep Tab inside the dialog while it's open.
+function focusable() {
+  return Array.from(el.querySelectorAll(
+    'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled])'
+  )).filter((n) => n.offsetParent !== null);
+}
+function trapTab(e) {
+  const f = focusable();
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
 
 function ensureTurnstile(cb) {
   if (!hasTurnstile) return cb(false);
@@ -47,11 +65,11 @@ function build() {
       '<form data-igc="form" style="padding:16px 22px 22px;display:flex;flex-direction:column;gap:12px">' +
         field('name', 'Your name', '<input required name="name" type="text" autocomplete="name" style="' + inp() + '">') +
         field('email', 'Email <span style=\'font-weight:400;opacity:.6\'>(optional)</span>', '<input name="email" type="email" autocomplete="email" style="' + inp() + '">') +
-        field('guests', 'How many of you?', '<input name="guests" type="number" min="1" step="1" value="1" style="' + inp() + '">') +
+        field('guests', 'How many of you?', '<input name="guests" type="number" min="1" max="6" step="1" value="1" style="' + inp() + '">') +
         field('note', 'Anything to add? <span style=\'font-weight:400;opacity:.6\'>(optional)</span>', '<textarea name="note" rows="2" style="' + inp() + 'resize:vertical"></textarea>') +
         '<div data-igc="ts" style="min-height:0"></div>' +
         '<div data-igc="msg" style="font-size:13px;min-height:18px"></div>' +
-        '<button type="submit" data-igc="submit" style="border:0;background:' + ROSE + ';color:#fff;font:inherit;font-weight:600;font-size:15px;padding:12px;border-radius:10px;cursor:pointer">Send RSVP</button>' +
+        '<button type="submit" data-igc="submit" style="border:0;background:' + ROSE + ';color:' + INK_ON_ROSE + ';font:inherit;font-weight:600;font-size:15px;padding:12px;border-radius:10px;cursor:pointer">Send RSVP</button>' +
       '</form>' +
     '</div>';
   document.body.appendChild(el);
@@ -59,7 +77,11 @@ function build() {
   el.addEventListener('click', (e) => {
     if (e.target === el || e.target.getAttribute('data-igc') === 'close') close();
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && el.style.display === 'flex') close(); });
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen()) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'Tab') trapTab(e);
+  });
   el.querySelector('[data-igc="form"]').addEventListener('submit', submit);
   tokenEl = el.querySelector('[data-igc="ts"]');
 }
@@ -67,15 +89,17 @@ function build() {
 function setMsg(text, ok) {
   const m = el.querySelector('[data-igc="msg"]');
   m.textContent = text || '';
-  m.style.color = ok ? '#116769' : ROSE;
+  m.style.color = ok ? '#116769' : ROSE_TEXT;
 }
 
 export function openRSVP(opts) {
   current = opts || {};
+  lastFocused = document.activeElement;
   if (!el) build();
   token = '';
   el.querySelector('[data-igc="form"]').reset();
-  el.querySelector('[name="guests"]').value = '1';
+  const guests = Math.max(1, Math.min(6, parseInt(current.guests, 10) || 1));
+  el.querySelector('[name="guests"]').value = String(guests);
   setMsg('');
   el.querySelector('[data-igc="sub"]').textContent = current.title ? ('for ' + current.title) : '';
   el.querySelector('[data-igc="submit"]').disabled = false;
@@ -102,6 +126,10 @@ function close() {
   if (hasTurnstile && window.turnstile && tsWidget != null) {
     try { window.turnstile.reset(tsWidget); } catch {}
   }
+  if (lastFocused && typeof lastFocused.focus === 'function') {
+    try { lastFocused.focus(); } catch {}
+  }
+  lastFocused = null;
 }
 
 export const closeRSVP = close;

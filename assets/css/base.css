@@ -74,7 +74,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* teal-theme link colors (match the live override) */
 a{color:var(--igc-cyan)}
-a:hover{color:var(--igc-rose)}
+a:hover{color:var(--brand-on-dark)}
 
 /* ---- shared utility classes ---------------------------------------------- */
 .igc-eyebrow{

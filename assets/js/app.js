@@ -1,7 +1,7 @@
 // In Great Company — client app. Recreates the original SPA (routes: home,
-// gatherings, event, story, join) as modular, data-driven views.
+// gatherings, event, story) as modular, data-driven views.
 import { loadEvents, loadVoices, loadPhotos } from './api.js';
-import { AVATAR_BY_NAME, VALUES, REASONS, LINKS } from './data.js';
+import { AVATAR_BY_NAME, VALUES, LINKS } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
 
 /* ----------------------------------------------------------------- helpers */
@@ -18,7 +18,7 @@ function sectionHeading({ eyebrow, title, script, description, center, size }) {
   if (xl) cls.push('section-heading--xl');
   return `<header class="${cls.join(' ')}">
     ${eyebrow ? `<div class="igc-eyebrow section-heading__eyebrow">${esc(eyebrow)}</div>` : ''}
-    <h2 class="section-heading__title">${esc(title)}${script ? scriptWord(script, xl) : ''}</h2>
+    <h2 class="section-heading__title">${esc(title)}${script ? ' ' + scriptWord(script, xl) : ''}</h2>
     ${description ? `<p class="section-heading__desc">${esc(description)}</p>` : ''}
   </header>`;
 }
@@ -39,12 +39,19 @@ function tag(label, { tone, outlined } = {}) {
 
 const statusOf = (g) => (g.price ? `$${g.price} · tickets` : null);
 
+// Branded stand-in when an event has no uploaded photo — a tone-tinted wash with
+// a faded script initial, instead of the raw "Photo — …" description text.
+function mediaPlaceholder(g) {
+  const initial = ((g.title || '').trim().charAt(0) || '·').toUpperCase();
+  return `<span class="media-ph media-ph--${esc(g.tone || 'cyan')}" aria-hidden="true"><span class="media-ph__mark">${esc(initial)}</span></span>`;
+}
+
 function eventCard(g, row) {
   const status = statusOf(g);
   const meta = [g.date, g.time, row ? g.place : null].filter(Boolean).join(' · ');
   return `<button type="button" class="event-card${row ? ' event-card--row' : ''}" data-action="open-event" data-id="${esc(g.id)}">
     <div class="event-card__media">
-      ${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}" loading="lazy">` : `<span class="event-card__note">${esc(g.note || '')}</span>`}
+      ${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}" loading="lazy">` : mediaPlaceholder(g)}
       ${status ? `<span class="event-card__status">${tag(status, { tone: 'gold' })}</span>` : ''}
     </div>
     <div class="event-card__body">
@@ -61,30 +68,40 @@ function eventCard(g, row) {
 function ticketBuy(o) {
   return `
     <div class="igc-eyebrow">${esc(o.priceLabel)}</div>
-    <h3 class="ticket__head">${esc(o.priceHead)}</h3>
+    <h2 class="ticket__head">${esc(o.priceHead)}</h2>
     <p class="ticket__note">${esc(o.priceNote)}</p>
     <div class="seats">
-      <span class="seats__label">Seats</span>
-      <div class="seats__ctrls">
-        <button type="button" class="seats__btn" aria-label="One fewer seat" data-action="dec-qty">−</button>
-        <span class="seats__qty">${o.qty}</span>
-        <button type="button" class="seats__btn" aria-label="One more seat" data-action="inc-qty">+</button>
+      <span class="seats__label" id="seats-label">Seats</span>
+      <div class="seats__ctrls" role="group" aria-labelledby="seats-label">
+        <button type="button" class="seats__btn" aria-label="One fewer seat" data-action="dec-qty"${o.qty <= 1 ? ' disabled' : ''}>−</button>
+        <span class="seats__qty" aria-live="polite" aria-label="${o.qty} ${o.qty === 1 ? 'seat' : 'seats'}">${o.qty}</span>
+        <button type="button" class="seats__btn" aria-label="One more seat" data-action="inc-qty"${o.qty >= 6 ? ' disabled' : ''}>+</button>
       </div>
     </div>
     <div class="ticket__total"><span class="ticket__total-label">Total</span><span class="ticket__total-val">${esc(o.total)}</span></div>
     <div class="ticket__actions">${button({ label: o.cta, size: 'lg', full: true, action: 'buy' })}</div>
-    <p class="ticket__fine">Secure checkout — card, Apple Pay, or Google Pay. Refunds up to 48 hours before, no explanation needed.</p>`;
+    <p class="ticket__fine">${esc(o.fine)}</p>`;
 }
 
 function ticketConfirmed(line) {
   return `
-    <div class="igc-eyebrow" style="color:var(--brand-primary)">Your seat is saved</div>
-    <h3 class="ticket__head">See you there. 💛</h3>
+    <div class="igc-eyebrow" style="color:var(--brand-on-dark)">Your seat is saved</div>
+    <h2 class="ticket__head">See you there. 💛</h2>
     <p class="ticket__note" style="margin-top:var(--space-4)">${esc(line)} We'll send the details a few days before — and if plans change, no explanation needed.</p>
     <div class="ticket__confirm-actions">
-      ${button({ label: 'Add To Calendar', variant: 'outline', full: true, action: 'add-calendar' })}
-      ${button({ label: 'Bring Someone Else Too', variant: 'ghost', full: true, action: 'reset-purchase' })}
+      ${button({ label: 'Bring Someone Else Too', variant: 'outline', full: true, action: 'reset-purchase' })}
     </div>`;
+}
+
+// Paid gathering with no checkout URL yet: never take a money-less RSVP through
+// the free path — say so plainly and point at where the link will appear.
+function ticketPending(price) {
+  return `
+    <div class="igc-eyebrow">Tickets</div>
+    <h2 class="ticket__head">$${price} a seat</h2>
+    <p class="ticket__note">Ticketing for this gathering opens soon. Follow along and we'll share the link the moment seats go live.</p>
+    <div class="ticket__actions">${button({ label: 'Follow For The Link', variant: 'outline', size: 'lg', full: true, action: 'open-instagram' })}</div>
+    <p class="ticket__fine">Can't wait? Email us at <a href="${LINKS.email}" style="color:inherit">${LINKS.emailText}</a> and we'll hold you a seat.</p>`;
 }
 
 function quoteCard(v) {
@@ -106,14 +123,14 @@ function quoteCard(v) {
 }
 
 /* -------------------------------------------------------------- chrome */
-const NAV = [['home', 'Home'], ['gatherings', 'Gatherings'], ['story', 'Our Story'], ['join', 'Join Us']];
+const NAV = [['home', 'Home'], ['gatherings', 'Gatherings'], ['story', 'Our Story']];
 
 function navBar(active) {
   const links = NAV.map(([r, l]) =>
     `<button class="nav__link${active === r ? ' is-active' : ''}" data-nav="${r}">${l}</button>`).join('');
   return `<nav class="nav" id="nav">
     <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream.png" alt="In Great Company"></button>
-    <div class="nav__links">${links}${button({ label: 'Save My Seat', size: 'sm', action: 'go-join' })}</div>
+    <div class="nav__links">${links}${button({ label: 'Save My Seat', size: 'sm', action: 'go-gatherings' })}</div>
   </nav>`;
 }
 
@@ -128,7 +145,6 @@ function footer() {
         <span class="igc-eyebrow footer__head">Wander over</span>
         <button class="footer__link" data-nav="gatherings" style="text-align:left;background:none;border:0;cursor:pointer">Gatherings</button>
         <button class="footer__link" data-nav="story" style="text-align:left;background:none;border:0;cursor:pointer">Our Story</button>
-        <button class="footer__link" data-nav="join" style="text-align:left;background:none;border:0;cursor:pointer">Join Us</button>
       </div>
       <div class="footer__col">
         <span class="igc-eyebrow footer__head">Say hi</span>
@@ -153,7 +169,7 @@ function homeView(state) {
         <p class="hero__lead">New to Savannah, starting a new chapter, or just craving real friendship — there's a seat here for you. No pressure, no judgment, just women showing up for each other.</p>
         <div class="hero__actions">
           ${button({ label: "See What's Coming Up", size: 'lg', action: 'go-gatherings' })}
-          ${button({ label: 'Come Say Hi', variant: 'outline', size: 'lg', action: 'go-join' })}
+          ${button({ label: 'Read Our Story', variant: 'outline', size: 'lg', action: 'go-story' })}
         </div>
         <div class="hero__tags">
           ${tag('All ages', { outlined: true })}${tag('Come alone', { outlined: true })}${tag('Bring a friend', { outlined: true })}${tag('No small talk required', { outlined: true })}
@@ -206,8 +222,8 @@ function homeView(state) {
   <section class="section section--rose">
     <div class="cta-band">
       <h2 class="cta-band__title">Come as you are.<br>You're in great company. 💛</h2>
-      <p class="cta-band__lead">Tell us a little about yourself and we'll let you know when the next gathering goes up.</p>
-      <div class="cta-band__actions">${button({ label: 'Save My Seat', variant: 'inverse', size: 'lg', action: 'go-join' })}</div>
+      <p class="cta-band__lead">Pick a gathering that sounds like you and save your seat — no application, no fee, just show up.</p>
+      <div class="cta-band__actions">${button({ label: "See What's Coming Up", variant: 'inverse', size: 'lg', action: 'go-gatherings' })}</div>
     </div>
   </section>`;
 }
@@ -227,19 +243,28 @@ function gatheringsView(state) {
 }
 
 function eventView(state) {
-  const g = state.events.find((e) => e.id === state.eventId) || state.events[0];
-  if (!g) return placeholderView('Gathering details', 'That gathering could not be found.');
+  // Events load async; don't guess the first event or flash "not found" mid-load.
+  if (!state.loaded && !state.events.length) return loadingView('Finding this gathering…');
+  const g = state.events.find((e) => e.id === state.eventId);
+  if (!g) return placeholderView('Gathering details', 'That gathering could not be found — it may have already happened, or the link is a little off. Everything on now is on the gatherings page.');
   const price = g.price;
   const meta = [g.date, g.time, g.place].filter(Boolean).join(' · ');
   const total = price ? `$${price * state.qty}` : 'Free';
+  // A paid event with no Stripe link must not silently become a free RSVP.
+  const ticketingUnavailable = price > 0 && !g.stripeUrl;
   const panel = state.purchased
     ? ticketConfirmed(price ? `Receipt for ${total} is on its way to your inbox.` : `We’ve got you down for ${state.qty}.`)
+    : ticketingUnavailable
+    ? ticketPending(price)
     : ticketBuy({
         priceLabel: price ? 'Tickets' : 'Free to come',
         priceHead: price ? `$${price} a seat` : 'Just tell us you’re coming',
         priceNote: price
           ? 'Your ticket covers the table and holds your seat. Checkout is handled by Stripe.'
           : 'No ticket, no charge. We just like to know how many chairs to pull up.',
+        fine: price
+          ? 'Secure checkout — card, Apple Pay, or Google Pay. Refunds up to 48 hours before, no explanation needed.'
+          : 'No charge, and nothing to commit to — change your mind any time, even the morning of.',
         qty: state.qty, total, cta: price ? 'Get My Ticket' : 'Save My Seat'
       });
   return `
@@ -248,15 +273,14 @@ function eventView(state) {
       <button class="back-link" data-action="go-gatherings">← All gatherings</button>
       <div class="event-detail">
         <div>
-          <div class="event-detail__media">${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}">` : `<span class="event-detail__note">${esc(g.note || '')}</span>`}</div>
+          <div class="event-detail__media">${g.image ? `<img src="${esc(g.image)}" alt="${esc(g.title)}">` : mediaPlaceholder(g)}</div>
           <div class="igc-eyebrow event-detail__meta">${esc(meta)}</div>
           <h1 class="event-detail__title">${esc(g.title)}</h1>
           <p class="event-detail__prose">${esc(g.blurb || '')}</p>
           ${g.detail ? `<p class="event-detail__prose" style="margin-top:0">${esc(g.detail)}</p>` : ''}
           <div class="event-detail__tags">
-            ${tag('Come alone', { tone: 'cyan' })}
-            ${tag('Street parking nearby', { outlined: true })}
-            ${tag('We’ll be at the long table', { outlined: true })}
+            ${tag('Come alone welcome', { tone: 'cyan' })}
+            ${(g.tags || []).map((t) => tag(t, { outlined: true })).join('')}
           </div>
         </div>
         <aside class="ticket">${panel}</aside>
@@ -276,7 +300,7 @@ function storyView() {
   </section>
   <section class="section section--page">
     <div class="container grid-3">
-      ${VALUES.map((v) => `<div class="card"><h3 class="card__title">${esc(v.title)}</h3><p class="card__body">${esc(v.body)}</p></div>`).join('')}
+      ${VALUES.map((v) => `<div class="card"><h2 class="card__title">${esc(v.title)}</h2><p class="card__body">${esc(v.body)}</p></div>`).join('')}
     </div>
   </section>
   <section class="section section--deep">
@@ -287,53 +311,28 @@ function storyView() {
   </section>`;
 }
 
-function joinView(state) {
-  return `
-  <section class="section section--page" style="padding:72px var(--gutter-lg) var(--section-y)">
-    <div class="container join">
-      <div>
-        ${sectionHeading({ eyebrow: 'Join us', title: 'There’s a seat here for', script: 'you', description: 'No application, no vetting, no fee. Tell us where to send the invitations and we’ll do the rest.' })}
-        <div class="join__media"><img src="${esc(state.photos.join || '/assets/img/photo-join.jpg')}" alt="Photo booth strips from an In Great Company gathering"></div>
-      </div>
-      <form class="form-card" data-join-form novalidate>
-        <div class="field">
-          <label class="field__label" for="j-name">First name</label>
-          <input class="field__control" id="j-name" name="name" type="text" placeholder="Rae" autocomplete="given-name">
-        </div>
-        <div class="field">
-          <label class="field__label" for="j-email">Email</label>
-          <input class="field__control" id="j-email" name="email" type="email" placeholder="rae@email.com" autocomplete="email">
-          <span class="field__hint">We send one note a week, on Sundays.</span>
-        </div>
-        <div class="field">
-          <label class="field__label" for="j-reason">What brought you here?</label>
-          <select class="field__control" id="j-reason" name="reason">${REASONS.map((r) => `<option value="${esc(r.value)}">${esc(r.label)}</option>`).join('')}</select>
-        </div>
-        <div class="field">
-          <label class="field__label" for="j-note">Anything you'd love us to plan?</label>
-          <textarea class="field__control" id="j-note" name="note" placeholder="A bookish thing. A long walk. Somewhere quiet enough to actually talk."></textarea>
-        </div>
-        <label class="checkfield"><input type="checkbox" name="remind"><span>Text me when a gathering is a day away</span></label>
-        <p class="form-note" data-join-msg></p>
-        ${button({ label: 'Save My Seat', size: 'lg', full: true, action: 'join-submit' })}
-        <p class="form-note">Come as you are. You're in great company. 💛</p>
-      </form>
-    </div>
-  </section>`;
-}
-
 // Fallback only (event id that no longer exists).
 function placeholderView(title, sub) {
   return `<section class="section section--page" style="min-height:52vh;display:grid;place-items:center">
     <div class="container" style="text-align:center">
       ${sectionHeading({ center: true, eyebrow: 'Not found', title, script: 'sorry' })}
       <p class="prose-lead" style="margin-left:auto;margin-right:auto">${esc(sub)}</p>
+      <div style="margin-top:var(--space-6)">${button({ label: 'See All Gatherings', size: 'lg', action: 'go-gatherings' })}</div>
+    </div>
+  </section>`;
+}
+
+// Shown while events are still loading (deep link straight to an event).
+function loadingView(msg) {
+  return `<section class="section section--page" style="min-height:52vh;display:grid;place-items:center">
+    <div class="container" style="text-align:center">
+      <p class="prose-lead" aria-live="polite" style="margin-left:auto;margin-right:auto">${esc(msg)}</p>
     </div>
   </section>`;
 }
 
 /* ---------------------------------------------------------------- router */
-const state = { route: 'home', events: [], voices: [], photos: {}, eventId: null, qty: 1, purchased: false };
+const state = { route: 'home', events: [], voices: [], photos: {}, eventId: null, qty: 1, purchased: false, loaded: false };
 
 function parseHash() {
   const h = (location.hash || '').replace(/^#\/?/, '');
@@ -347,7 +346,6 @@ function viewFor(route) {
     case 'home': return homeView(state);
     case 'gatherings': return gatheringsView(state);
     case 'story': return storyView();
-    case 'join': return joinView(state);
     case 'event': return eventView(state);
     default: return homeView(state);
   }
@@ -385,44 +383,36 @@ document.addEventListener('click', (e) => {
   const id = act.getAttribute('data-id');
   switch (action) {
     case 'go-gatherings': go('gatherings'); break;
-    case 'go-join': go('join'); break;
     case 'go-story': go('story'); break;
     case 'open-instagram': window.open(LINKS.instagram, '_blank', 'noopener'); break;
     case 'open-facebook': window.open(LINKS.facebook, '_blank', 'noopener'); break;
     case 'open-event': location.hash = `#event/${id}`; break;
-    case 'inc-qty': state.qty = Math.min(6, state.qty + 1); render(); break;
-    case 'dec-qty': state.qty = Math.max(1, state.qty - 1); render(); break;
+    case 'inc-qty': state.qty = Math.min(6, state.qty + 1); render(); refocusSeat('inc-qty'); break;
+    case 'dec-qty': state.qty = Math.max(1, state.qty - 1); render(); refocusSeat('dec-qty'); break;
     case 'reset-purchase': state.purchased = false; state.qty = 1; render(); break;
     case 'buy': buyCurrent(); break;
-    case 'add-calendar': break; // TODO Phase 3: generate an .ics / calendar link
-    case 'join-submit': e.preventDefault(); submitJoin(); break;
     default: break;
   }
 });
 
-// A gathering with a stripeUrl goes to Stripe; otherwise open the RSVP modal.
+// The whole view re-renders on a seat change, so restore focus to the stepper
+// (or its still-enabled sibling when we hit a bound) for keyboard users.
+function refocusSeat(action) {
+  const other = action === 'inc-qty' ? 'dec-qty' : 'inc-qty';
+  const btn = document.querySelector(`.seats__btn[data-action="${action}"]:not([disabled])`)
+    || document.querySelector(`.seats__btn[data-action="${other}"]:not([disabled])`);
+  if (btn) btn.focus();
+}
+
+// Paid + stripeUrl → Stripe. Paid without a link → do nothing (the panel already
+// shows the "opens soon" state). Free → RSVP modal, prefilled with the seat count.
 function buyCurrent() {
-  const g = state.events.find((e) => e.id === state.eventId) || state.events[0];
+  const g = state.events.find((e) => e.id === state.eventId);
   if (!g) return;
+  if (g.price > 0 && !g.stripeUrl) return;
   if (g.stripeUrl) { window.open(g.stripeUrl + '?quantity=' + state.qty, '_blank'); return; }
-  openRSVP({ eventId: g.id, title: g.title, onSuccess: () => { state.purchased = true; render(); } });
+  openRSVP({ eventId: g.id, title: g.title, guests: state.qty, onSuccess: () => { state.purchased = true; render(); } });
 }
-
-// The join list is a mailing-list signup. TODO Phase 3: POST to a list endpoint.
-function submitJoin() {
-  const form = document.querySelector('[data-join-form]');
-  if (!form) return;
-  const name = (form.querySelector('[name=name]').value || '').trim();
-  const msg = form.querySelector('[data-join-msg]');
-  if (!name) { if (msg) { msg.textContent = 'Please add your first name.'; msg.style.color = 'var(--brand-primary)'; } return; }
-  if (msg) { msg.textContent = 'You’re on the list — see you soon. 💛'; msg.style.color = 'var(--cyan-300)'; }
-  const btn = form.querySelector('[data-action=join-submit]');
-  if (btn) btn.setAttribute('disabled', 'true');
-}
-
-document.addEventListener('submit', (e) => {
-  if (e.target.matches('[data-join-form]')) { e.preventDefault(); submitJoin(); }
-});
 
 window.addEventListener('hashchange', () => { closeRSVP(); render(); });
 window.addEventListener('scroll', syncNavScroll, { passive: true });
@@ -434,6 +424,7 @@ async function init() {
   state.events = events;
   state.voices = voices;
   state.photos = photos;
+  state.loaded = true;
   render(); // re-render with data
 }
 
