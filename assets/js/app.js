@@ -149,7 +149,7 @@ function navBar(active) {
     `<button class="nav__link${active === r ? ' is-active' : ''}" data-nav="${r}">${l}</button>`).join('');
   return `<nav class="nav" id="nav">
     <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream.png" alt="In Great Company"></button>
-    <div class="nav__links">${links}${button({ label: 'See Gatherings', size: 'sm', action: 'go-gatherings' })}</div>
+    <div class="nav__links">${links}</div>
   </nav>`;
 }
 
