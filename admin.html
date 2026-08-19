@@ -91,6 +91,12 @@
   .card.open .card-body{display:grid}
   .card.open .card-head .chev{transform:rotate(90deg)}
   .chev{transition:.15s;display:inline-block;color:var(--ink-2)}
+  .past-head{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;
+    margin-top:20px;padding:12px 4px;border-top:1px solid var(--line)}
+  .past-head__title{font-family:Georgia,serif;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .past-head__hint{margin-left:2px}
+  .past-head .chev{margin-left:auto}
+  .past-head.open .chev{transform:rotate(90deg)}
 
   .field{display:flex;flex-direction:column;gap:5px}
   .field.full{grid-column:1 / -1}
@@ -365,6 +371,7 @@ const EFIELDS = ["id","title","date","time","place","category","tone","price","s
 let events = [];
 let originalEventIds = new Set();
 const eOpen = {};
+let pastEventsOpen = false; // is the collapsed "Past gatherings" group expanded
 const eventsListEl = $("#eventsList");
 
 function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0 }; }
@@ -455,7 +462,22 @@ function renderEvents(){
     updateSaveInfo(); return;
   }
   eventsListEl.innerHTML = "";
-  events.forEach((e,i)=> eventsListEl.insertAdjacentHTML("beforeend", eventCardHTML(i)));
+  // Upcoming events first; past ones (auto-detected by date) tuck into a
+  // collapsed group at the bottom so they don't clutter the top — still there
+  // to duplicate as a starting point for a new gathering.
+  const order = events.map((_,i)=>i);
+  const upcoming = order.filter(i=> !isEventPast(events[i]));
+  const past = order.filter(i=> isEventPast(events[i]));
+  upcoming.forEach(i=> eventsListEl.insertAdjacentHTML("beforeend", eventCardHTML(i)));
+  if(past.length){
+    eventsListEl.insertAdjacentHTML("beforeend",
+      `<div class="past-head${pastEventsOpen?" open":""}" data-past-toggle>
+         <span class="past-head__title">Past gatherings <span class="badge off">${past.length}</span></span>
+         <span class="past-head__hint hint">already happened — kept here to copy from</span>
+         <span class="chev">▸</span>
+       </div>`);
+    if(pastEventsOpen) past.forEach(i=> eventsListEl.insertAdjacentHTML("beforeend", eventCardHTML(i)));
+  }
   events.forEach((_,i)=> applyEventValidation(i));
   updateSaveInfo();
 }
@@ -695,6 +717,7 @@ eventsListEl.addEventListener("click", e=>{
   if(t.dataset.down !== undefined){ moveEvent(+t.dataset.down, 1); e.stopPropagation(); return; }
   if(t.dataset.dup !== undefined){ dupEvent(+t.dataset.dup); e.stopPropagation(); return; }
   if(t.dataset.del !== undefined){ delEvent(+t.dataset.del); e.stopPropagation(); return; }
+  if(t.closest("[data-past-toggle]")){ pastEventsOpen = !pastEventsOpen; renderEvents(); return; }
   const head = t.closest("[data-toggle]");
   if(head){ const idx = +head.dataset.toggle; eOpen[idx] = !eOpen[idx]; renderEvents(); }
 });
@@ -707,6 +730,10 @@ function moveEvent(i,dir){
 function dupEvent(i){
   const copy = JSON.parse(JSON.stringify(events[i]));
   copy.id = uniqueEventSlug(slugify(copy.id||copy.title||"gathering")+"-copy", -1);
+  // A duplicate is a starting point for a NEW gathering — clear the date so the
+  // copy surfaces as an upcoming draft (not tucked into "Past") and prompts a
+  // fresh date. Everything else (place, blurb, price, photo…) carries over.
+  copy.date = ""; copy.eventDate = "";
   events.splice(i+1,0,copy);
   const next={}; Object.keys(eOpen).forEach(k=>{k=+k; next[k>i?k+1:k]=eOpen[k];});
   Object.keys(eOpen).forEach(k=>delete eOpen[k]); Object.assign(eOpen,next);
