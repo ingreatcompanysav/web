@@ -41,12 +41,6 @@ export const AVATAR_BY_NAME = {
   Victoria: '/assets/img/avatar-victoria.jpg'
 };
 
-export const VALUES = [
-  { title: 'Women first, always', body: 'Every gathering is planned around what makes women feel safe, seen, and unhurried — the timing, the room, the seating.' },
-  { title: 'No pressure, no judgment', body: 'Come to everything or come twice a year. Cancel the morning of. Nobody keeps score and nobody needs an explanation.' },
-  { title: 'The city we love', body: 'Hidden gems and old favorites, and the small businesses run by women we’d rather give our money to.' }
-];
-
 export const LINKS = {
   instagram: 'https://www.instagram.com/ingreatcompanysav',
   facebook: 'https://www.facebook.com/groups/ingreatcompanysav',

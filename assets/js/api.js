@@ -33,7 +33,7 @@ export async function loadVoices() {
 }
 
 // Rotating photos by slot. /api/photos returns arrays per slot; we pick a random
-// hero/story/join for this visit (that's the "rotation") and pass gallery through
+// hero/join for this visit (that's the "rotation") and pass gallery through
 // as an array. Empty slots fall back to the baked-in images in app.js.
 export async function loadPhotos() {
   let raw = {};
@@ -48,7 +48,6 @@ export async function loadPhotos() {
     : null);
   return {
     hero: pick(raw.hero),
-    story: pick(raw.story),
     join: pick(raw.join),
     gallery: Array.isArray(raw.gallery) ? raw.gallery : [],
   };

@@ -1,7 +1,7 @@
 // In Great Company — client app. Recreates the original SPA (routes: home,
-// gatherings, event, story, privacy) as modular, data-driven views.
+// gatherings, event, privacy) as modular, data-driven views.
 import { loadEvents, loadVoices, loadPhotos } from './api.js';
-import { AVATAR_BY_NAME, VALUES, LINKS } from './data.js';
+import { AVATAR_BY_NAME, LINKS } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
 
 /* ----------------------------------------------------------------- helpers */
@@ -142,7 +142,7 @@ function quoteCard(v) {
 }
 
 /* -------------------------------------------------------------- chrome */
-const NAV = [['home', 'Home'], ['gatherings', 'Gatherings'], ['story', 'Our Story']];
+const NAV = [['home', 'Home'], ['gatherings', 'Gatherings']];
 
 function navBar(active) {
   const links = NAV.map(([r, l]) =>
@@ -163,7 +163,6 @@ function footer() {
       <div class="footer__col">
         <span class="igc-eyebrow footer__head">Wander over</span>
         <button class="footer__link" data-nav="gatherings" style="text-align:left;background:none;border:0;cursor:pointer">Gatherings</button>
-        <button class="footer__link" data-nav="story" style="text-align:left;background:none;border:0;cursor:pointer">Our Story</button>
       </div>
       <div class="footer__col">
         <span class="igc-eyebrow footer__head">Say hi</span>
@@ -188,7 +187,6 @@ function homeView(state) {
         <p class="hero__lead">New to Savannah, starting a new chapter, or just craving real friendship — there's a seat here for you. No pressure, no judgment, just women showing up for each other.</p>
         <div class="hero__actions">
           ${button({ label: "See What's Coming Up", size: 'lg', action: 'go-gatherings' })}
-          ${button({ label: 'Read Our Story', variant: 'outline', size: 'lg', action: 'go-story' })}
         </div>
       </div>
       <div class="hero__media"><img src="${esc(state.photos.hero || '/assets/img/photo-hero.jpg')}" alt="In Great Company members laughing together on a sailboat in Savannah"></div>
@@ -215,16 +213,6 @@ function homeView(state) {
         ${button({ label: 'See All Gatherings →', variant: 'ghost', action: 'go-gatherings' })}
       </div>
       <div class="grid-3 mt-8">${featured.map((g) => eventCard(g)).join('')}</div>
-    </div>
-  </section>
-
-  <section class="section section--page">
-    <div class="container split split--story">
-      <div class="media-frame media-frame--square"><img src="${esc(state.photos.story || '/assets/img/photo-story.jpg')}" alt="Two In Great Company members smiling together on a night out"></div>
-      <div>
-        ${sectionHeading({ eyebrow: "Why we're here", title: 'Connection that', script: 'lasts' })}
-        <p class="prose-lead">We come together to explore the city we love, from hidden gems to old favorites, over coffee, long dinners, and slow Sunday mornings — and to build the kind of friendships you keep for a lifetime.</p>
-      </div>
     </div>
   </section>
 
@@ -328,28 +316,6 @@ function eventView(state) {
   </section>`;
 }
 
-function storyView() {
-  return `
-  <section class="story-hero">
-    <div class="story-hero__inner">
-      <div class="igc-eyebrow">Our story</div>
-      <h1 class="story-hero__title">It started with one table and four women who didn't know each other</h1>
-      <p class="story-hero__lead">Making friends as a grown woman is strange and hard. Everyone is busy, everyone already has people, and nobody wants to be the one who asks. So we asked.</p>
-    </div>
-  </section>
-  <section class="section section--page">
-    <div class="container grid-3">
-      ${VALUES.map((v) => `<div class="card"><h2 class="card__title">${esc(v.title)}</h2><p class="card__body">${esc(v.body)}</p></div>`).join('')}
-    </div>
-  </section>
-  <section class="section section--deep">
-    <div class="quote-band">
-      <p class="quote-band__text">I walked in not knowing a soul and left with three numbers in my phone and dinner plans on Thursday.</p>
-      <p class="quote-band__cite">Marisol · came alone in March</p>
-    </div>
-  </section>`;
-}
-
 function privacyView() {
   return `
   <section class="story-hero">
@@ -435,7 +401,6 @@ function viewFor(route) {
   switch (route) {
     case 'home': return homeView(state);
     case 'gatherings': return gatheringsView(state);
-    case 'story': return storyView();
     case 'privacy': return privacyView();
     case 'event': return eventView(state);
     default: return homeView(state);
@@ -474,7 +439,6 @@ document.addEventListener('click', (e) => {
   const id = act.getAttribute('data-id');
   switch (action) {
     case 'go-gatherings': go('gatherings'); break;
-    case 'go-story': go('story'); break;
     case 'open-instagram': window.open(LINKS.instagram, '_blank', 'noopener'); break;
     case 'open-facebook': window.open(LINKS.facebook, '_blank', 'noopener'); break;
     case 'open-fb-event': if (id) window.open(id, '_blank', 'noopener'); break;
