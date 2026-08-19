@@ -63,8 +63,8 @@ CREATE INDEX IF NOT EXISTS idx_rsvps_event ON rsvps(event_id);
 
 -- Rotating photos, uploaded from the admin page. The binary lives in the R2
 -- bucket (binding PHOTOS); this table holds the metadata. Served at /img/<r2_key>.
---   * slot groups a photo to a surface: hero | gallery | story | join.
---   * hero/story/join rotate (a random active one per visit); gallery is a grid.
+--   * slot groups a photo to a surface: hero | gallery | join.
+--   * hero/join rotate (a random active one per visit); gallery is a grid.
 CREATE TABLE IF NOT EXISTS photos (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   slot          TEXT    DEFAULT 'gallery',

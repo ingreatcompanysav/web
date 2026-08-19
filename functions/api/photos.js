@@ -1,6 +1,6 @@
 // GET /api/photos — public. Active photos grouped by slot, in sort order.
-// Shape: { hero: [{id,slot,url,alt}], gallery: [...], story: [...], join: [...] }
-// The site rotates a random hero/story/join per visit and renders gallery as a grid.
+// Shape: { hero: [{id,slot,url,alt}], gallery: [...], join: [...] }
+// The site rotates a random hero per visit and renders gallery as a grid.
 import { json, photoToPublic, PHOTO_SLOTS } from '../_shared/db.js';
 
 export async function onRequestGet({ env }) {
