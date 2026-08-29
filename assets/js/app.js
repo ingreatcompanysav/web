@@ -11,6 +11,14 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
 const scriptWord = (word, xl) => `<span class="igc-script${xl ? ' igc-script--xl' : ''}">${esc(word)}</span>`;
 
 /* --------------------------------------------------------------- components */
+/* Social + contact marks. Inline SVG so they take the surrounding text colour
+   and need no icon font or extra request. */
+const ICONS = {
+  instagram: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.2"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.05" fill="currentColor" stroke="none"/></svg>`,
+  facebook: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.01 3.66 9.17 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.19 2.24.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.45 2.91h-2.33V22c4.78-.77 8.44-4.93 8.44-9.94Z"/></svg>`,
+  email: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="4.6" width="18.8" height="14.8" rx="2.6"/><path d="m3.6 7.4 8.4 5.8 8.4-5.8"/></svg>`
+};
+
 function sectionHeading({ eyebrow, title, script, description, center, size }) {
   const xl = size === 'xl';
   const cls = ['section-heading'];
@@ -23,11 +31,12 @@ function sectionHeading({ eyebrow, title, script, description, center, size }) {
   </header>`;
 }
 
-function button({ label, variant = 'default', size, full, action, id }) {
+function button({ label, variant = 'default', size, full, action, id, icon }) {
   const cls = ['btn', `btn--${variant}`];
   if (size) cls.push(`btn--${size}`);
   if (full) cls.push('btn--full');
-  return `<button type="button" class="${cls.join(' ')}"${action ? ` data-action="${action}"` : ''}${id ? ` data-id="${esc(id)}"` : ''}>${esc(label)}</button>`;
+  const mark = ICONS[icon] || '';
+  return `<button type="button" class="${cls.join(' ')}"${action ? ` data-action="${action}"` : ''}${id ? ` data-id="${esc(id)}"` : ''}>${mark}${esc(label)}</button>`;
 }
 
 function tag(label, { tone, outlined } = {}) {
@@ -166,12 +175,16 @@ function footer() {
       </div>
       <div class="footer__col">
         <span class="igc-eyebrow footer__head">Say hi</span>
-        <a class="footer__link" href="${LINKS.instagram}" target="_blank" rel="noopener noreferrer">@ingreatcompanysav</a>
-        <a class="footer__link" href="${LINKS.facebook}" target="_blank" rel="noopener noreferrer">Facebook Group</a>
-        <a class="footer__link" href="${LINKS.email}">${LINKS.emailText}</a>
+        <a class="footer__link" href="${LINKS.instagram}" target="_blank" rel="noopener noreferrer">${ICONS.instagram}<span>@ingreatcompanysav</span></a>
+        <a class="footer__link" href="${LINKS.facebook}" target="_blank" rel="noopener noreferrer">${ICONS.facebook}<span>Facebook Group</span></a>
+        <a class="footer__link" href="${LINKS.email}">${ICONS.email}<span>${LINKS.emailText}</span></a>
       </div>
     </div>
-    <div class="footer__bar"><span>Savannah, Georgia</span><button class="footer__link" data-nav="privacy" style="background:none;border:0;cursor:pointer;font:inherit;color:inherit">Privacy Policy</button><span>Women first, always.</span></div>
+    <div class="footer__bar">
+      <span class="footer__note">Savannah, Georgia</span>
+      <button type="button" class="footer__legal" data-nav="privacy">Privacy Policy</button>
+      <span class="footer__note">Women first, always.</span>
+    </div>
   </footer>`;
 }
 
@@ -184,7 +197,7 @@ function homeView(state) {
       <div>
         <div class="igc-eyebrow">A women's social group · Savannah, GA</div>
         <h1 class="hero__title">Every woman deserves a place to<br>${scriptWord('belong.', true)}</h1>
-        <p class="hero__lead">New to Savannah, starting a new chapter, or just craving real friendship — there's a seat here for you. No pressure, no judgment, just women showing up for each other.</p>
+        <p class="hero__lead">New to Savannah, starting a new chapter, or just craving real friendship? There's a seat here for you. No pressure, no judgment, just women showing up for each other.</p>
         <div class="hero__actions">
           ${button({ label: "See What's Coming Up", size: 'lg', action: 'go-gatherings' })}
         </div>
@@ -196,10 +209,10 @@ function homeView(state) {
   <section class="section section--page">
     <div class="container">
       <div class="section-head">
-        ${sectionHeading({ eyebrow: 'Follow along', title: 'The everyday, as it happens', script: 'here', size: 'xl', description: 'Instagram is where we live day to day — the feed, the faces, the last-minute plans. Everything coming up lives on the calendar right here.' })}
+        ${sectionHeading({ eyebrow: 'Follow along', title: 'The everyday, as it happens', script: 'here', size: 'xl', description: 'Instagram is where we live day to day: the feed, the faces, the last-minute plans. Everything coming up lives on the calendar right here.' })}
         <div class="cluster">
-          ${button({ label: '@ingreatcompanysav', variant: 'outline', action: 'open-instagram' })}
-          ${button({ label: 'Facebook Group', variant: 'outline', action: 'open-facebook' })}
+          ${button({ label: '@ingreatcompanysav', variant: 'outline', action: 'open-instagram', icon: 'instagram' })}
+          ${button({ label: 'Facebook Group', variant: 'outline', action: 'open-facebook', icon: 'facebook' })}
         </div>
       </div>
       ${state.photos.gallery && state.photos.gallery.length ? `<div class="gallery mt-8">${state.photos.gallery.map((p) => `<figure class="gallery__item"><img src="${esc(p.url)}" alt="${esc(p.alt || '')}" loading="lazy"></figure>`).join('')}</div>` : ''}
@@ -226,7 +239,7 @@ function homeView(state) {
   <section class="section section--rose">
     <div class="cta-band">
       <h2 class="cta-band__title">Come as you are.<br>You're in great company. 💛</h2>
-      <p class="cta-band__lead">Pick a gathering that sounds like you and save your seat — no application, no fee, just show up.</p>
+      <p class="cta-band__lead">Pick a gathering that sounds like you and save your seat. No application, no fee, just show up.</p>
       <div class="cta-band__actions">${button({ label: "See What's Coming Up", variant: 'inverse', size: 'lg', action: 'go-gatherings' })}</div>
     </div>
   </section>`;
@@ -335,15 +348,15 @@ function privacyView() {
         <h2>What we collect</h2>
         <p>When you RSVP to a gathering, we ask for:</p>
         <ul>
-          <li><strong>Your name</strong> — so we know who’s coming.</li>
-          <li><strong>Your email address</strong> (optional) — so we can send you details and updates about the gathering you signed up for.</li>
-          <li><strong>Number of guests</strong> — so we can plan the right amount of space.</li>
-          <li><strong>Any note you add</strong> — anything you’d like us to know, shared at your discretion.</li>
+          <li><strong>Your name</strong>, so we know who’s coming.</li>
+          <li><strong>Your email address</strong> (optional), so we can send you details and updates about the gathering you signed up for.</li>
+          <li><strong>Number of guests</strong>, so we can plan the right amount of space.</li>
+          <li><strong>Any note you add</strong>, anything you’d like us to know, shared at your discretion.</li>
         </ul>
         <p>We only collect what you choose to type into the RSVP form. We don’t use tracking cookies or third-party advertising trackers on this site.</p>
 
         <h2>How we use it</h2>
-        <p>We use your information solely to organize our gatherings — confirming your RSVP, planning for the number of attendees, and contacting you about the event you signed up for or future In Great Company events.</p>
+        <p>We use your information solely to organize our gatherings: confirming your RSVP, planning for the number of attendees, and contacting you about the event you signed up for or future In Great Company events.</p>
 
         <h2>What we never do</h2>
         <p>We do not sell, rent, or trade your information. We do not share it with advertisers or any third party outside of what’s needed to run the site and communicate with you (for example, the secure services that host our website and store RSVPs on our behalf).</p>
@@ -355,7 +368,7 @@ function privacyView() {
         <p>You’re always in control of your information. If you’d like us to update or delete what we have on file, just email us at <a href="${LINKS.email}">${LINKS.emailText}</a> and we’ll take care of it. If we ever send you event emails, every one will include a way to unsubscribe.</p>
 
         <h2>Age</h2>
-        <p>Our gatherings are for adults, and many of our events include alcohol. By RSVPing, you confirm that you are 21 or older.</p>
+        <p>Our gatherings are intended for adults. If a particular event has its own age requirement, we’ll say so on that event’s page.</p>
 
         <h2>Changes to this policy</h2>
         <p>If we update this policy, we’ll revise the “last updated” date above. Meaningful changes will be reflected here on this page.</p>
