@@ -226,7 +226,7 @@
       </ol>
     </details>
     <div class="toolbar">
-      <button id="addEventBtn">+ Add gathering</button>
+      <button id="addEventsBtn">+ Add gathering</button>
       <button class="ghost" id="collapseEventsBtn">Collapse all</button>
       <button class="ghost" id="reloadEventsBtn">Reload from site</button>
       <span class="status grow" id="eventsStatus"></span>
@@ -245,7 +245,7 @@
       </ol>
     </details>
     <div class="toolbar">
-      <button id="addQuoteBtn">+ Add quote</button>
+      <button id="addQuotesBtn">+ Add quote</button>
       <button class="ghost" id="collapseQuotesBtn">Collapse all</button>
       <button class="ghost" id="reloadQuotesBtn">Reload from site</button>
       <span class="status grow" id="quotesStatus"></span>
@@ -321,7 +321,7 @@
       </ol>
     </details>
     <div class="toolbar">
-      <button id="addLinkBtn">+ Add link</button>
+      <button id="addLinksBtn">+ Add link</button>
       <button class="ghost" id="collapseLinksBtn">Collapse all</button>
       <button class="ghost" id="reloadLinksBtn">Reload from site</button>
       <a class="mini" href="/links" target="_blank" rel="noopener" style="align-self:center">View the page ↗</a>
@@ -397,10 +397,6 @@ async function api(method, path, body){
 }
 
 const $ = s => document.querySelector(s);
-const TONES = ["cyan","rose","gold"];
-const QUOTE_TONES = ["cream","deep","rose","cyan","gold"];
-const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 let activeTab = "events";
 const dirty = { events:false, quotes:false, links:false };
@@ -417,16 +413,417 @@ function slugify(s){
 }
 
 /* =========================================================================
-   EVENTS
-   ========================================================================= */
-const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden"];
-let events = [];
-let originalEventIds = new Set();
-const eOpen = {};
-let pastEventsOpen = false; // is the collapsed "Past gatherings" group expanded
-const eventsListEl = $("#eventsList");
+   Editable collections — gatherings, quotes and links
 
-function blankEvent(){ return { id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0 }; }
+   These three tabs behave identically: a list of cards you expand, edit,
+   reorder and delete, held in memory until Save writes the whole list back.
+   They used to be three parallel implementations — blankX, validateX,
+   renderX, xCardHTML, applyXValidation, refreshXHeader, moveX, delX, loadX,
+   saveX, plus three near-identical sets of delegated listeners. saveQuotes
+   and saveLinks were the same function with the nouns swapped.
+
+   Now there is one implementation, and each tab supplies a spec: what a blank
+   row looks like, which fields the card shows, what makes a row invalid, and
+   what the collapsed header reads. Anything genuinely unique to one tab
+   (a gathering's date pickers and auto-slug ID) stays in that tab's spec.
+
+   Every card uses the same data attributes: data-c is the collection, data-i
+   the row index, data-k the field. One set of listeners reads all three.
+   ========================================================================= */
+
+/* -------------------------------------------------------- field markup */
+const dataAttrs = (c, i, k) => `data-c="${c}" data-i="${i}" data-k="${k}"`;
+
+// Wraps a control in the standard label + message shell. `key` names the
+// message slot so validation can find it.
+const field = (o, control) => `
+      <div class="field${o.full ? " full" : ""}">
+        <label>${o.label}${o.required ? ' <span class="req">*</span>' : ""}${o.hint ? ` <span class="hint">${o.hint}</span>` : ""}</label>
+        ${control}
+        ${o.count
+          ? `<div class="charcount" data-cc="${o.key}" data-cc-max="${o.count}"></div>`
+          : `<div class="field-msg" data-msg="${o.key}"></div>`}
+        ${o.after || ""}
+      </div>`;
+
+const CONTROL = {
+  text: (a, row, o) =>
+    `<input type="text" ${a} value="${escapeAttr(row[o.key])}"${o.list ? ` list="${o.list}"` : ""}${o.readonly ? ' readonly tabindex="-1"' : ""} placeholder="${escapeAttr(o.placeholder || "")}">`,
+
+  number: (a, row, o) =>
+    `<input type="number" min="0" step="1" data-num="1" ${a} value="${escapeAttr(row[o.key])}">`,
+
+  textarea: (a, row, o) =>
+    `<textarea ${a} placeholder="${escapeAttr(o.placeholder || "")}">${escapeHtml(row[o.key])}</textarea>`,
+
+  select: (a, row, o) => {
+    // Options are either plain values or [value, label] pairs.
+    const opts = o.options.map((opt) => {
+      const [v, t] = Array.isArray(opt) ? opt : [opt, opt];
+      return `<option value="${escapeAttr(v)}"${v === (row[o.key] || "") ? " selected" : ""}>${escapeHtml(t)}</option>`;
+    });
+    return `<select ${a}>${opts.join("")}</select>`;
+  },
+
+  // Text field + Upload button + hidden file input + a preview of whatever
+  // URL is currently in the box.
+  image: (a, row, o, c, i) => `
+        <div class="row">
+          <input type="text" ${a} value="${escapeAttr(row[o.key])}" placeholder="https://…  — or use Upload →">
+          <button type="button" class="mini ghost" data-act="upload-btn">Upload</button>
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-act="upload" data-c="${c}" data-i="${i}" data-k="${o.key}" data-max="${o.maxDim || 1400}" hidden>
+        </div>
+        <div class="imgprev" data-prev="${o.key}">${row[o.key] ? `<img src="${escapeAttr(row[o.key])}" alt="">` : ""}</div>`,
+};
+
+function renderField(c, i, row, o) {
+  if (o.type === "check") {
+    // No label row and no message slot — the label sits beside the box.
+    return `
+      <div class="field full">
+        <div class="checkrow">
+          <input type="checkbox" id="${c}-${o.key}-${i}" ${dataAttrs(c, i, o.key)}${row[o.key] ? " checked" : ""}>
+          <label for="${c}-${o.key}-${i}">${o.label}${o.hint ? ` <span class="hint">${o.hint}</span>` : ""}</label>
+        </div>
+      </div>`;
+  }
+  if (o.type === "custom") return field(o, o.render(dataAttrs(c, i, o.key), row, o, c, i));
+
+  const control = CONTROL[o.type || "text"](dataAttrs(c, i, o.key), row, o, c, i);
+  // The image control brings its own preview, so it manages its own shell.
+  return o.type === "image"
+    ? field({ ...o }, control)
+    : field(o, control);
+}
+
+/* ------------------------------------------------------ the collection */
+const COLLECTIONS = {};
+
+function collection(spec) {
+  const c = spec.key;
+  const listEl = $("#" + c + "List");
+  let rows = [];
+  let originalIds = new Set();
+  const open = {};          // index -> expanded?
+  const state = { pastOpen: false };
+
+  const idOf = (row) => (spec.clientId ? (row.id || "").trim() : row.id);
+  const toneOf = (row) => (spec.tones.includes(row.tone) ? row.tone : spec.tones[0]);
+  const validate = (i) => {
+    const v = spec.validate(rows[i], i, rows);
+    return { errs: v.errs || {}, warns: v.warns || {} };
+  };
+
+  /* ---- rendering ---- */
+  function cardHTML(i) {
+    const row = rows[i];
+    const v = validate(i);
+    const hasErr = Object.keys(v.errs).length > 0;
+    const head = spec.head(row, { hasErr, hasWarn: Object.keys(v.warns).length > 0 });
+    const cls = `card tone-${toneOf(row)}${open[i] ? " open" : ""}${hasErr ? " has-error" : ""}${head.dim ? " inactive" : ""}`;
+    return `
+  <div class="${cls}" data-card="${c}-${i}">
+    <div class="card-head" data-act="toggle" data-c="${c}" data-i="${i}">
+      <div>
+        <div class="title">${escapeHtml(head.title)} ${head.badges}</div>
+        <div class="meta">${escapeHtml(head.meta)}</div>
+      </div>
+      <div class="controls">
+        <button class="icon ghost" data-act="up" data-c="${c}" data-i="${i}" title="Move up"${i === 0 ? " disabled" : ""}>↑</button>
+        <button class="icon ghost" data-act="down" data-c="${c}" data-i="${i}" title="Move down"${i === rows.length - 1 ? " disabled" : ""}>↓</button>
+        ${spec.duplicate ? `<button class="icon ghost" data-act="dup" data-c="${c}" data-i="${i}" title="Duplicate">⧉</button>` : ""}
+        <button class="icon ghost" data-act="del" data-c="${c}" data-i="${i}" title="Delete">✕</button>
+        <span class="chev">▸</span>
+      </div>
+    </div>
+    <div class="card-body">${spec.fields(row, i).map((o) => renderField(c, i, row, o)).join("")}</div>
+  </div>`;
+  }
+
+  function render() {
+    if (!rows.length) {
+      listEl.innerHTML = `<div class="empty"><h2>${spec.empty.title}</h2><p>${spec.empty.body}</p></div>`;
+      updateSaveInfo();
+      return;
+    }
+    listEl.innerHTML = "";
+    const order = rows.map((_, i) => i);
+
+    // Gatherings tuck already-happened entries into a collapsed group at the
+    // bottom, still there to copy from. The other tabs have no such split.
+    const sunk = spec.sink ? order.filter((i) => spec.sink(rows[i])) : [];
+    const top = order.filter((i) => !sunk.includes(i));
+
+    top.forEach((i) => listEl.insertAdjacentHTML("beforeend", cardHTML(i)));
+    if (sunk.length) {
+      listEl.insertAdjacentHTML("beforeend",
+        `<div class="past-head${state.pastOpen ? " open" : ""}" data-act="sink-toggle" data-c="${c}">
+           <span class="past-head__title">${spec.sinkLabel} <span class="badge off">${sunk.length}</span></span>
+           <span class="past-head__hint hint">already happened — kept here to copy from</span>
+           <span class="chev">▸</span>
+         </div>`);
+      if (state.pastOpen) sunk.forEach((i) => listEl.insertAdjacentHTML("beforeend", cardHTML(i)));
+    }
+    rows.forEach((_, i) => applyValidation(i));
+    updateSaveInfo();
+  }
+
+  const cardEl = (i) => listEl.querySelector(`.card[data-card="${c}-${i}"]`);
+
+  // Paints every message slot in the card from the current errors/warnings.
+  // Slots are found in the DOM rather than listed here, so a spec can add a
+  // validated field without touching this.
+  function applyValidation(i) {
+    const card = cardEl(i);
+    if (!card) return;
+    const v = validate(i);
+    card.querySelectorAll("[data-msg]").forEach((msg) => {
+      const k = msg.dataset.msg;
+      const input = card.querySelector(`[data-k="${k}"]`);
+      const err = v.errs[k], warn = v.warns[k];
+      msg.textContent = err || warn || "";
+      msg.className = "field-msg" + (err ? " err" : warn ? " warn" : "");
+      if (input) input.classList.toggle("err", !!err);
+    });
+    card.querySelectorAll("[data-cc]").forEach((cc) => {
+      const n = (rows[i][cc.dataset.cc] || "").length;
+      const max = +cc.dataset.ccMax;
+      cc.textContent = n + " characters" + (max && n > max ? " — getting long for a card" : "");
+    });
+    card.classList.toggle("has-error", Object.keys(v.errs).length > 0);
+    refreshHeader(i);
+  }
+
+  // Header only — avoids re-rendering (and collapsing) the card being typed in.
+  function refreshHeader(i) {
+    const card = cardEl(i);
+    if (!card) return;
+    const v = validate(i);
+    const hasErr = Object.keys(v.errs).length > 0;
+    const head = spec.head(rows[i], { hasErr, hasWarn: Object.keys(v.warns).length > 0 });
+    card.querySelector(".card-head .title").innerHTML = escapeHtml(head.title) + " " + head.badges;
+    card.querySelector(".card-head .meta").textContent = head.meta;
+    card.className = `card tone-${toneOf(rows[i])}${open[i] ? " open" : ""}${hasErr ? " has-error" : ""}${head.dim ? " inactive" : ""}`;
+  }
+
+  // Writes a value and keeps its input in step (used when one field derives
+  // another — a date picker filling the display text, say).
+  function setField(i, key, val) {
+    rows[i][key] = val;
+    const inp = cardEl(i) && cardEl(i).querySelector(`[data-k="${key}"]`);
+    if (inp && inp.value !== String(val)) inp.value = val;
+  }
+
+  function updatePreview(i, key) {
+    const prev = cardEl(i) && cardEl(i).querySelector(`[data-prev="${key}"]`);
+    if (!prev) return;
+    const url = (rows[i][key] || "").trim();
+    prev.innerHTML = url ? `<img src="${escapeAttr(url)}" alt="">` : "";
+  }
+
+  /* ---- reordering, duplication, removal ---- */
+  // Keeps the expanded/collapsed flags attached to their rows as indices move.
+  function reindexOpen(fn) {
+    const next = {};
+    Object.keys(open).forEach((k) => {
+      const to = fn(+k);
+      if (to !== null) next[to] = open[k];
+    });
+    Object.keys(open).forEach((k) => delete open[k]);
+    Object.assign(open, next);
+  }
+
+  function move(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+    const a = open[i]; open[i] = open[j]; open[j] = a;
+    render(); markDirty(c);
+  }
+
+  function remove(i) {
+    if (!confirm(spec.confirmDelete(rows[i]))) return;
+    rows.splice(i, 1);
+    reindexOpen((k) => (k === i ? null : k > i ? k - 1 : k));
+    render(); markDirty(c);
+  }
+
+  function duplicate(i) {
+    const copy = spec.duplicate(JSON.parse(JSON.stringify(rows[i])), rows);
+    rows.splice(i + 1, 0, copy);
+    reindexOpen((k) => (k > i ? k + 1 : k));
+    open[i + 1] = true;
+    render(); markDirty(c);
+  }
+
+  function add() {
+    rows.push(spec.blank());
+    open[rows.length - 1] = true;
+    render(); markDirty(c);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  }
+
+  /* ---- image upload ---- */
+  async function upload(i, key, maxDim, file) {
+    const card = cardEl(i);
+    const msg = card && card.querySelector(`[data-msg="${key}"]`);
+    const say = (t, k) => { if (msg) { msg.textContent = t; msg.className = "field-msg" + (k ? " " + k : ""); } };
+    try {
+      say("Shrinking image…");
+      const { blob } = await resizeImage(file, maxDim);
+      const fd = new FormData();
+      fd.append("file", blob, (file.name.replace(/\.[^.]+$/, "") || key) + ".jpg");
+      say("Uploading…");
+      const r = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      if (r.status === 401 || r.status === 403) throw authError(r.status, await r.text().catch(() => ""));
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data && data.error ? data.error : "HTTP " + r.status);
+      setField(i, key, data.url);
+      updatePreview(i, key);
+      markDirty(c);
+      say("Uploaded ✓");
+    } catch (err) {
+      say("Upload failed: " + err.message, "err");
+    }
+  }
+
+  /* ---- load + save ---- */
+  async function load() {
+    try {
+      setStatus(c + "Status", "Loading…");
+      const data = await api("GET", spec.endpoint);
+      rows = data.map(spec.fromApi);
+      originalIds = new Set(rows.map(idOf).filter((x) => x != null));
+      Object.keys(open).forEach((k) => delete open[k]);
+      dirty[c] = false;
+      render();
+      setStatus(c + "Status", `${rows.length} ${spec.noun}${rows.length !== 1 ? "s" : ""} loaded.`, "ok");
+      if (spec.afterLoad) spec.afterLoad(rows);
+    } catch (err) {
+      setStatus(c + "Status", "Couldn’t load: " + err.message, "warn");
+    }
+  }
+
+  async function save() {
+    if (spec.beforeSave) { spec.beforeSave(rows); render(); }
+
+    const errors = rows.reduce((a, _, i) => a + Object.keys(validate(i).errs).length, 0);
+    if (errors && !confirm(`${errors} field${errors > 1 ? "s" : ""} still need fixing (shown in pink). Save anyway?`)) return;
+
+    const current = rows.map(idOf).filter((x) => x != null);
+    const gone = [...originalIds].filter((id) => !current.includes(id));
+    try {
+      setStatus(c + "Status", "Saving…");
+      for (const id of gone) await api("DELETE", `${spec.endpoint}/${encodeURIComponent(id)}`);
+
+      // Create/update in list order, collecting ids so the reorder call can
+      // put them back in exactly that order.
+      const ordered = [];
+      for (const row of rows) {
+        const payload = spec.payload(row);
+        const id = idOf(row);
+        if (originalIds.has(id)) {
+          await api("PUT", `${spec.endpoint}/${encodeURIComponent(id)}`, payload);
+          ordered.push(id);
+        } else {
+          const r = await api("POST", spec.endpoint, payload);
+          row.id = r.id;
+          ordered.push(r.id);
+        }
+      }
+      await api("POST", "/api/admin/reorder", { type: c, order: ordered });
+      await load();
+      setStatus(c + "Status", spec.savedMsg, "ok");
+    } catch (err) {
+      setStatus(c + "Status", "Save failed: " + err.message, "warn");
+    }
+  }
+
+  /* ---- wiring ---- */
+  const Btn = c[0].toUpperCase() + c.slice(1);   // events -> #addEventsBtn
+  $("#add" + Btn + "Btn").addEventListener("click", add);
+  $("#reload" + Btn + "Btn").addEventListener("click", load);
+  $("#collapse" + Btn + "Btn").addEventListener("click", () => {
+    const anyOpen = Object.values(open).some(Boolean);
+    Object.keys(open).forEach((k) => delete open[k]);
+    if (!anyOpen) rows.forEach((_, i) => { open[i] = true; });
+    $("#collapse" + Btn + "Btn").textContent = anyOpen ? "Expand all" : "Collapse all";
+    render();
+  });
+
+  // Listeners are scoped to this tab's list, so the photos tab (which uses
+  // data-act with its own ids) can never be caught by them.
+  listEl.addEventListener("input", (e) => {
+    const el = e.target;
+    if (el.dataset.i === undefined) return;
+    const i = +el.dataset.i, k = el.dataset.k;
+
+    // A spec can claim a control before the generic path (the date/time pickers).
+    if (spec.onInput && spec.onInput(self, i, el)) return;
+    if (k === undefined || el.type === "checkbox") return;
+
+    rows[i][k] = el.dataset.num ? (el.value === "" ? 0 : Number(el.value)) : el.value;
+    if (spec.onChanged) spec.onChanged(self, i, k);
+    updatePreview(i, k);
+    applyValidation(i);
+    markDirty(c);
+  });
+
+  listEl.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.dataset.i === undefined) return;
+    const i = +el.dataset.i, k = el.dataset.k;
+
+    if (el.dataset.act === "upload" && el.files && el.files[0]) {
+      upload(i, k, +el.dataset.max, el.files[0]);
+      el.value = "";
+      return;
+    }
+    if (el.type === "checkbox") rows[i][k] = el.checked ? 1 : 0;
+    else if (el.tagName === "SELECT") rows[i][k] = el.value;
+    else return;
+    refreshHeader(i);
+    markDirty(c);
+  });
+
+  listEl.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-act]");
+    if (!t) return;
+    const act = t.dataset.act, i = +t.dataset.i;
+    if (act === "upload-btn") {
+      const inp = t.parentElement.querySelector('[data-act="upload"]');
+      if (inp) inp.click();
+      e.stopPropagation();
+      return;
+    }
+    if (act === "sink-toggle") { state.pastOpen = !state.pastOpen; render(); return; }
+    if (act === "toggle") { open[i] = !open[i]; render(); return; }
+    if (act === "up") { move(i, -1); e.stopPropagation(); return; }
+    if (act === "down") { move(i, 1); e.stopPropagation(); return; }
+    if (act === "dup") { duplicate(i); e.stopPropagation(); return; }
+    if (act === "del") { remove(i); e.stopPropagation(); }
+  });
+
+  const self = {
+    spec, load, save, render, setField, applyValidation, updatePreview,
+    get rows() { return rows; },
+    isExisting: (id) => originalIds.has(id),
+    count: () => rows.length,
+    errorCount: () => rows.reduce((a, _, i) => a + Object.keys(validate(i).errs).length, 0),
+  };
+  COLLECTIONS[c] = self;
+  return self;
+}
+
+/* ================================================================= specs */
+
+/* ---- gatherings -------------------------------------------------------
+   The only collection with a client-chosen id: a slug built from the title
+   and date, with the ISO date at the FRONT so ids sort chronologically and a
+   second Paint & Sip stays distinct from the first. */
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
 // A dated gathering counts as past once its calendar day is over (local time).
 function isEventPast(e){
   const iso = e.eventDate || "";
@@ -434,13 +831,11 @@ function isEventPast(e){
   const today = new Date(); today.setHours(0,0,0,0);
   return new Date(iso+"T00:00:00") < today;
 }
-
 function isoToDisplay(iso){
   if(!iso) return "";
   const [y,m,d] = iso.split("-").map(Number);
   if(!y||!m||!d) return "";
-  const dt = new Date(y, m-1, d);
-  return `${WD[dt.getDay()]}, ${MO[m-1]} ${d}`;
+  return `${WD[new Date(y, m-1, d).getDay()]}, ${MO[m-1]} ${d}`;
 }
 function displayToIso(str){
   if(!str) return "";
@@ -451,16 +846,14 @@ function displayToIso(str){
   const day = +m[2];
   const today = new Date();
   let y = today.getFullYear();
-  const floor = new Date(today.getFullYear(), today.getMonth(), today.getDate()-45);
-  if(new Date(y, mi, day) < floor) y += 1;
+  // A month already 45 days behind us means next year's occurrence.
+  if(new Date(y, mi, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate()-45)) y += 1;
   return `${y}-${String(mi+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 }
 function timeInputToDisplay(t){
   if(!t) return "";
-  let [h,m] = t.split(":").map(Number);
-  const ap = h < 12 ? "am" : "pm";
-  let h12 = h % 12; if(h12 === 0) h12 = 12;
-  return `${h12}:${String(m).padStart(2,"0")}${ap}`;
+  const [h,m] = t.split(":").map(Number);
+  return `${(h % 12) || 12}:${String(m).padStart(2,"0")}${h < 12 ? "am" : "pm"}`;
 }
 function displayToTimeInput(str){
   if(!str) return "";
@@ -469,820 +862,228 @@ function displayToTimeInput(str){
   let h = (+m[1]) % 12; if(/pm/i.test(m[3])) h += 12;
   return `${String(h).padStart(2,"0")}:${m[2]}`;
 }
-function uniqueEventSlug(base, idx){
-  const taken = new Set(events.map((e,i)=> i===idx ? null : (e.id||"").trim()).filter(Boolean));
+function uniqueEventSlug(rows, base, idx){
+  const taken = new Set(rows.map((e,i)=> i===idx ? null : (e.id||"").trim()).filter(Boolean));
   let cand = base || "gathering", n = 1;
   while(taken.has(cand)){ n++; cand = `${base||"gathering"}-${n}`; }
   return cand;
 }
-// ISO date prefix (YYYY-MM-DD) put at the FRONT of the ID, so IDs sort
-// chronologically and recurring events (a second Paint & Sip) stay distinct.
-// e.g. "2026-08-18-paint-sip". Empty prefix if there's no valid date.
-function slugFor(idx){
-  const e = events[idx];
+function slugFor(rows, idx){
+  const e = rows[idx];
   const base = slugify((e.title||"").trim() || (e.id||""));
   const iso = displayToIso(e.date);
-  return uniqueEventSlug(iso && base ? iso + "-" + base : base, idx);
+  return uniqueEventSlug(rows, iso && base ? iso + "-" + base : base, idx);
 }
-function validateEvent(i){
-  const e = events[i];
-  const errs = {}, warns = {};
-  const id = (e.id||"").trim();
-  if(!id) errs.id = "ID is required.";
-  else {
-    const dup = events.some((o,j)=> j!==i && (o.id||"").trim() === id);
-    if(dup) errs.id = "Another gathering already uses this ID.";
+
+const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden"];
+const blankEvent = () => ({ id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0 });
+
+collection({
+  key: "events",
+  endpoint: "/api/admin/events",
+  noun: "gathering",
+  clientId: true,
+  tones: ["cyan","rose","gold"],
+  empty: { title:"No gatherings yet", body:"Add one to get started." },
+  savedMsg: "Saved ✓ The site is updated.",
+  sink: isEventPast,
+  sinkLabel: "Past gatherings",
+
+  blank(){
+    const e = blankEvent();
+    const t = new Date();
+    e.date = `${WD[t.getDay()]}, ${MO[t.getMonth()]} ${t.getDate()}`;
+    return e;
+  },
+  fromApi: (o) => { const c = {}; EFIELDS.forEach(k => c[k] = o[k] !== undefined ? o[k] : blankEvent()[k]); return c; },
+  payload: (e) => { const p = {}; EFIELDS.forEach(k => p[k] = e[k]); return p; },
+  confirmDelete: (e) => `Delete "${e.title||e.id||"this gathering"}"? This removes it from the list here; it's deleted from the site when you Save.`,
+
+  // A duplicate is a starting point for a NEW gathering — clear the date so
+  // the copy surfaces as an upcoming draft and prompts a fresh one. Everything
+  // else (place, blurb, price, photo…) carries over.
+  duplicate(copy, rows){
+    copy.id = uniqueEventSlug(rows, slugify(copy.id||copy.title||"gathering")+"-copy", -1);
+    copy.date = ""; copy.eventDate = "";
+    return copy;
+  },
+
+  validate(e, i, rows){
+    const errs = {}, warns = {};
+    const id = (e.id||"").trim();
+    if(!id) errs.id = "ID is required.";
+    else if(rows.some((o,j)=> j!==i && (o.id||"").trim() === id)) errs.id = "Another gathering already uses this ID.";
     else if(slugify(id) !== id) warns.id = "Will be tidied to “"+slugify(id)+"” on save.";
-  }
-  if(!(e.title||"").trim()) errs.title = "Title is required.";
-  if(!(e.date||"").trim()) warns.date = "No date set.";
-  const price = Number(e.price);
-  if(isNaN(price) || price < 0) errs.price = "Price must be 0 or more.";
-  const url = (e.stripeUrl||"").trim();
-  if(url && !/^https?:\/\//i.test(url)) errs.stripeUrl = "Link should start with http:// or https://";
-  else if(price > 0 && !url) warns.stripeUrl = "Paid gathering with no Stripe link — “Get my ticket” will only confirm the seat, not charge.";
-  else if(price === 0 && url) warns.stripeUrl = "Free gathering has a Stripe link — attendees would be charged.";
-  const fb = (e.facebookUrl||"").trim();
-  if(fb && !/^https?:\/\//i.test(fb)) errs.facebookUrl = "Link should start with http:// or https://";
-  else if(fb && !/facebook\.com|fb\.me|fb\.com/i.test(fb)) warns.facebookUrl = "That doesn’t look like a Facebook link — double-check it.";
-  return { errs, warns };
-}
 
-function renderEvents(){
-  if(events.length === 0){
-    eventsListEl.innerHTML = '<div class="empty"><h2>No gatherings yet</h2><p>Add one to get started.</p></div>';
-    updateSaveInfo(); return;
-  }
-  eventsListEl.innerHTML = "";
-  // Upcoming events first; past ones (auto-detected by date) tuck into a
-  // collapsed group at the bottom so they don't clutter the top — still there
-  // to duplicate as a starting point for a new gathering.
-  const order = events.map((_,i)=>i);
-  const upcoming = order.filter(i=> !isEventPast(events[i]));
-  const past = order.filter(i=> isEventPast(events[i]));
-  upcoming.forEach(i=> eventsListEl.insertAdjacentHTML("beforeend", eventCardHTML(i)));
-  if(past.length){
-    eventsListEl.insertAdjacentHTML("beforeend",
-      `<div class="past-head${pastEventsOpen?" open":""}" data-past-toggle>
-         <span class="past-head__title">Past gatherings <span class="badge off">${past.length}</span></span>
-         <span class="past-head__hint hint">already happened — kept here to copy from</span>
-         <span class="chev">▸</span>
-       </div>`);
-    if(pastEventsOpen) past.forEach(i=> eventsListEl.insertAdjacentHTML("beforeend", eventCardHTML(i)));
-  }
-  events.forEach((_,i)=> applyEventValidation(i));
-  updateSaveInfo();
-}
-function eventCardHTML(i){
-  const e = events[i];
-  const tone = TONES.includes(e.tone) ? e.tone : "cyan";
-  const v = validateEvent(i);
-  const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
-  const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
-  const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
-  const past = isEventPast(e), hid = !!e.hidden;
-  const badge = (hasErr ? '<span class="badge err">needs fixing</span>'
-                        : (hasWarn ? '<span class="badge warnb">check</span>' : ''))
-                + (hid ? ' <span class="badge off">hidden</span>' : '')
-                + (past ? ' <span class="badge off">past</span>' : '');
-  return `
-  <div class="card tone-${tone}${eOpen[i]?" open":""}${hasErr?" has-error":""}${hid?" inactive":""}" data-card="${i}">
-    <div class="card-head" data-toggle="${i}">
-      <div>
-        <div class="title">${escapeHtml(e.title||"(untitled)")} ${badge}</div>
-        <div class="meta">${escapeHtml(metaBits)}${metaBits?" · ":""}${priceLabel}</div>
-      </div>
-      <div class="controls">
-        <button class="icon ghost" data-up="${i}" title="Move up" ${i===0?"disabled":""}>↑</button>
-        <button class="icon ghost" data-down="${i}" title="Move down" ${i===events.length-1?"disabled":""}>↓</button>
-        <button class="icon ghost" data-dup="${i}" title="Duplicate">⧉</button>
-        <button class="icon ghost" data-del="${i}" title="Delete">✕</button>
-        <span class="chev">▸</span>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="field">
-        <label>ID <span class="hint">auto-made from the title + date — used in the web address</span></label>
-        <input type="text" data-i="${i}" data-k="id" value="${escapeAttr(e.id)}" readonly tabindex="-1">
-        <div class="field-msg" data-msg="id"></div>
-      </div>
-      <div class="field">
-        <label>Tone <span class="hint">accent colour on the card</span></label>
-        <select data-i="${i}" data-k="tone">
-          ${TONES.map(t=>`<option value="${t}" ${t===e.tone?"selected":""}>${t}</option>`).join("")}
-        </select>
-        <div class="field-msg"></div>
-      </div>
-      <div class="field full">
-        <label>Title <span class="req">*</span></label>
-        <input type="text" data-i="${i}" data-k="title" value="${escapeAttr(e.title)}" placeholder="e.g. Long table dinner">
-        <div class="field-msg" data-msg="title"></div>
-      </div>
-      <div class="field">
-        <label>Date</label>
+    if(!(e.title||"").trim()) errs.title = "Title is required.";
+    if(!(e.date||"").trim()) warns.date = "No date set.";
+
+    const price = Number(e.price);
+    if(isNaN(price) || price < 0) errs.price = "Price must be 0 or more.";
+
+    const url = (e.stripeUrl||"").trim();
+    if(url && !/^https?:\/\//i.test(url)) errs.stripeUrl = "Link should start with http:// or https://";
+    else if(price > 0 && !url) warns.stripeUrl = "Paid gathering with no Stripe link — “Get my ticket” will only confirm the seat, not charge.";
+    else if(price === 0 && url) warns.stripeUrl = "Free gathering has a Stripe link — attendees would be charged.";
+
+    const fb = (e.facebookUrl||"").trim();
+    if(fb && !/^https?:\/\//i.test(fb)) errs.facebookUrl = "Link should start with http:// or https://";
+    else if(fb && !/facebook\.com|fb\.me|fb\.com/i.test(fb)) warns.facebookUrl = "That doesn’t look like a Facebook link — double-check it.";
+
+    return { errs, warns };
+  },
+
+  head(e, { hasErr, hasWarn }){
+    const meta = [e.date,e.time,e.place].filter(Boolean).join(" · ");
+    return {
+      title: e.title || "(untitled)",
+      meta: meta + (meta ? " · " : "") + (Number(e.price) > 0 ? "$"+e.price : "Free"),
+      badges: (hasErr ? '<span class="badge err">needs fixing</span>'
+                      : hasWarn ? '<span class="badge warnb">check</span>' : '')
+            + (e.hidden ? ' <span class="badge off">hidden</span>' : '')
+            + (isEventPast(e) ? ' <span class="badge off">past</span>' : ''),
+      dim: !!e.hidden,
+    };
+  },
+
+  fields: (e, i) => [
+    { key:"id", label:"ID", hint:"auto-made from the title + date — used in the web address", readonly:true },
+    { key:"tone", label:"Tone", hint:"accent colour on the card", type:"select", options:["cyan","rose","gold"] },
+    { key:"title", label:"Title", required:true, full:true, placeholder:"e.g. Long table dinner" },
+    { key:"date", label:"Date", type:"custom",
+      after:'<div class="hint" style="margin-top:6px">Set the real date so this gathering moves to “Past” on its own after it happens.</div>',
+      render:(a,row)=>`
         <div class="row">
-          <input type="date" data-i="${i}" data-role="date-pick" value="${escapeAttr(e.eventDate || displayToIso(e.date))}">
-          <input type="text" data-i="${i}" data-k="date" value="${escapeAttr(e.date)}" placeholder="Sun, Aug 16">
-        </div>
-        <div class="field-msg" data-msg="date"></div>
-        <div class="hint" style="margin-top:6px">Set the real date so this gathering moves to “Past” on its own after it happens.</div>
-      </div>
-      <div class="field">
-        <label>Time</label>
+          <input type="date" data-c="events" data-i="${i}" data-role="date-pick" value="${escapeAttr(row.eventDate || displayToIso(row.date))}">
+          <input type="text" ${a} value="${escapeAttr(row.date)}" placeholder="Sun, Aug 16">
+        </div>` },
+    { key:"time", label:"Time", type:"custom",
+      render:(a,row)=>`
         <div class="row">
-          <input type="time" data-i="${i}" data-role="time-pick" value="${escapeAttr(displayToTimeInput(e.time))}">
-          <input type="text" data-i="${i}" data-k="time" value="${escapeAttr(e.time)}" placeholder="9:30am">
-        </div>
-        <div class="field-msg"></div>
-      </div>
-      <div class="field full">
-        <label>Place</label>
-        <input type="text" data-i="${i}" data-k="place" value="${escapeAttr(e.place)}" placeholder="e.g. Foxy Loxy, Bull St">
-        <div class="field-msg"></div>
-      </div>
-      <div class="field">
-        <label>Category</label>
-        <input type="text" list="catlist" data-i="${i}" data-k="category" value="${escapeAttr(e.category)}" placeholder="e.g. Ticketed">
-        <div class="field-msg"></div>
-      </div>
-      <div class="field">
-        <label>Price (USD) <span class="hint">0 = free</span></label>
-        <input type="number" min="0" step="1" data-i="${i}" data-k="price" data-num="1" value="${escapeAttr(e.price)}">
-        <div class="field-msg" data-msg="price"></div>
-      </div>
-      <div class="field full">
-        <label>Stripe payment link <span class="hint">paid gatherings only</span></label>
-        <input type="text" data-i="${i}" data-k="stripeUrl" value="${escapeAttr(e.stripeUrl)}" placeholder="https://buy.stripe.com/...">
-        <div class="field-msg" data-msg="stripeUrl"></div>
-      </div>
-      <div class="field full">
-        <label>Facebook event link <span class="hint">optional — the event's page on Facebook</span></label>
-        <input type="text" data-i="${i}" data-k="facebookUrl" value="${escapeAttr(e.facebookUrl)}" placeholder="https://www.facebook.com/events/...">
-        <div class="field-msg" data-msg="facebookUrl"></div>
-      </div>
-      <div class="field full">
-        <label>Blurb <span class="hint">short line on the card</span></label>
-        <textarea data-i="${i}" data-k="blurb" data-count="90" placeholder="One or two sentences.">${escapeHtml(e.blurb)}</textarea>
-        <div class="charcount" data-cc="blurb"></div>
-      </div>
-      <div class="field full">
-        <label>Detail <span class="hint">the longer description on the event page</span></label>
-        <textarea data-i="${i}" data-k="detail" placeholder="A paragraph or two.">${escapeHtml(e.detail)}</textarea>
-        <div class="field-msg"></div>
-      </div>
-      <div class="field full">
-        <label>Photo <span class="hint">upload an image or paste a URL — shown on the card and event page</span></label>
-        <div class="row">
-          <input type="text" data-i="${i}" data-k="image" value="${escapeAttr(e.image)}" placeholder="https://…  — or use Upload →">
-          <button type="button" class="mini ghost" data-upimg-btn="${i}">Upload</button>
-          <input type="file" accept="image/png,image/jpeg,image/webp" data-upimg="${i}" hidden>
-        </div>
-        <div class="imgprev" data-imgprev="${i}">${e.image?`<img src="${escapeAttr(e.image)}" alt="">`:""}</div>
-        <div class="field-msg" data-msg="image"></div>
-      </div>
-      <div class="field full">
-        <label>Photo caption <span class="hint">text shown only when there's no photo above</span></label>
-        <textarea data-i="${i}" data-k="note" placeholder="Photo — ...">${escapeHtml(e.note)}</textarea>
-        <div class="field-msg"></div>
-      </div>
-      <div class="field full">
-        <div class="checkrow">
-          <input type="checkbox" id="ehidden-${i}" data-i="${i}" data-k="hidden" ${e.hidden?"checked":""}>
-          <label for="ehidden-${i}">Hide this gathering <span class="hint">— for a draft or a cancelled event; it won't show anywhere on the site. Past events drop off on their own by date.</span></label>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-function applyEventValidation(i){
-  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
-  if(!card) return;
-  const v = validateEvent(i);
-  ["id","title","date","price","stripeUrl","facebookUrl"].forEach(k=>{
-    const msg = card.querySelector(`[data-msg="${k}"]`);
-    const input = card.querySelector(`[data-k="${k}"]`);
-    if(!msg) return;
-    if(v.errs[k]){ msg.textContent = v.errs[k]; msg.className = "field-msg err"; if(input) input.classList.add("err"); }
-    else if(v.warns[k]){ msg.textContent = v.warns[k]; msg.className = "field-msg warn"; if(input) input.classList.remove("err"); }
-    else { msg.textContent = ""; msg.className = "field-msg"; if(input) input.classList.remove("err"); }
-  });
-  const cc = card.querySelector('[data-cc="blurb"]');
-  if(cc){ const n=(events[i].blurb||"").length; cc.textContent = n+" characters"+(n>140?" — getting long for a card":""); }
-  card.classList.toggle("has-error", Object.keys(v.errs).length>0);
-  refreshEventHeader(i);
-}
-function refreshEventHeader(i){
-  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
-  if(!card) return;
-  const e = events[i];
-  const v = validateEvent(i);
-  const hasErr = Object.keys(v.errs).length>0, hasWarn = Object.keys(v.warns).length>0;
-  const past = isEventPast(e), hid = !!e.hidden;
-  const tone = TONES.includes(e.tone) ? e.tone : "cyan";
-  const badge = (hasErr ? '<span class="badge err">needs fixing</span>'
-                        : (hasWarn ? '<span class="badge warnb">check</span>' : ''))
-              + (hid ? ' <span class="badge off">hidden</span>' : '')
-              + (past ? ' <span class="badge off">past</span>' : '');
-  card.querySelector(".card-head .title").innerHTML = escapeHtml(e.title||"(untitled)")+" "+badge;
-  const metaBits = [e.date,e.time,e.place].filter(Boolean).join(" · ");
-  const priceLabel = Number(e.price)>0 ? ("$"+e.price) : "Free";
-  card.querySelector(".card-head .meta").textContent = metaBits + (metaBits?" · ":"") + priceLabel;
-  card.className = "card tone-"+tone+(eOpen[i]?" open":"")+(hasErr?" has-error":"")+(hid?" inactive":"");
-}
-function setEventField(i, key, val){
-  events[i][key] = val;
-  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
-  const inp = card && card.querySelector(`[data-k="${key}"]`);
-  if(inp && inp.value !== String(val)) inp.value = val;
-}
-function updateImgPreview(i){
-  const card = eventsListEl.querySelector(`.card[data-card="${i}"]`);
-  if(!card) return;
-  const prev = card.querySelector(`[data-imgprev="${i}"]`);
-  const url = (events[i].image||"").trim();
-  if(prev) prev.innerHTML = url ? `<img src="${escapeAttr(url)}" alt="">` : "";
-}
-async function uploadEventImage(idx, file){
-  const card = eventsListEl.querySelector(`.card[data-card="${idx}"]`);
-  const msg = card && card.querySelector('[data-msg="image"]');
-  const setMsg = (t,k)=>{ if(msg){ msg.textContent=t; msg.className="field-msg"+(k?" "+k:""); } };
-  try{
-    setMsg("Shrinking image…");
-    const {blob} = await resizeImage(file, 1400);
-    const fd = new FormData();
-    fd.append("file", blob, (file.name.replace(/\.[^.]+$/,"")||"event")+".jpg");
-    setMsg("Uploading…");
-    const r = await fetch("/api/admin/upload", { method:"POST", body:fd });
-    if(r.status===401 || r.status===403) throw authError(r.status, await r.text().catch(()=>""));
-    const data = await r.json().catch(()=>null);
-    if(!r.ok) throw new Error((data && data.error) ? data.error : ("HTTP "+r.status));
-    setEventField(idx, "image", data.url);
-    updateImgPreview(idx);
+          <input type="time" data-c="events" data-i="${i}" data-role="time-pick" value="${escapeAttr(displayToTimeInput(row.time))}">
+          <input type="text" ${a} value="${escapeAttr(row.time)}" placeholder="9:30am">
+        </div>` },
+    { key:"place", label:"Place", full:true, placeholder:"e.g. Foxy Loxy, Bull St" },
+    { key:"category", label:"Category", list:"catlist", placeholder:"e.g. Ticketed" },
+    { key:"price", label:"Price (USD)", hint:"0 = free", type:"number" },
+    { key:"stripeUrl", label:"Stripe payment link", hint:"paid gatherings only", full:true, placeholder:"https://buy.stripe.com/..." },
+    { key:"facebookUrl", label:"Facebook event link", hint:"optional — the event's page on Facebook", full:true, placeholder:"https://www.facebook.com/events/..." },
+    { key:"blurb", label:"Blurb", hint:"short line on the card", type:"textarea", full:true, count:140, placeholder:"One or two sentences." },
+    { key:"detail", label:"Detail", hint:"the longer description on the event page", type:"textarea", full:true, placeholder:"A paragraph or two." },
+    { key:"image", label:"Photo", hint:"upload an image or paste a URL — shown on the card and event page", type:"image", full:true, maxDim:1400 },
+    { key:"note", label:"Photo caption", hint:"text shown only when there's no photo above", type:"textarea", full:true, placeholder:"Photo — ..." },
+    { key:"hidden", label:"Hide this gathering", type:"check",
+      hint:"— for a draft or a cancelled event; it won't show anywhere on the site. Past events drop off on their own by date." },
+  ],
+
+  // The two pickers write through to the display strings beside them.
+  onInput(col, i, el){
+    const role = el.dataset.role;
+    if(role !== "date-pick" && role !== "time-pick") return false;
+    if(role === "date-pick"){
+      col.rows[i].eventDate = el.value;             // real ISO date — drives past/upcoming
+      col.setField(i, "date", isoToDisplay(el.value));
+      if(!col.isExisting(col.rows[i].id) && (col.rows[i].title||"").trim()) col.setField(i, "id", slugFor(col.rows, i));
+    } else {
+      col.setField(i, "time", timeInputToDisplay(el.value));
+    }
+    col.applyValidation(i);
     markDirty("events");
-    setMsg("Uploaded ✓");
-  }catch(err){ setMsg("Upload failed: "+err.message, "err"); }
-}
+    return true;
+  },
+  // The id tracks the title until the gathering has been saved once.
+  onChanged(col, i, k){
+    if(k === "title" && !col.isExisting(col.rows[i].id)) col.setField(i, "id", slugFor(col.rows, i));
+  },
+  beforeSave(rows){
+    rows.forEach((e,i)=>{ const id=(e.id||"").trim(); if(id) e.id = uniqueEventSlug(rows, slugify(id), i); });
+  },
+  afterLoad: () => buildRsvpFilter(),
+});
 
-eventsListEl.addEventListener("input", e=>{
-  const el = e.target; const i = el.dataset.i;
-  if(i === undefined) return;
-  const idx = +i, role = el.dataset.role, k = el.dataset.k;
-  if(role === "date-pick"){
-    events[idx].eventDate = el.value; // real ISO date — drives auto past/upcoming
-    setEventField(idx,"date", isoToDisplay(el.value));
-    if(!originalEventIds.has(events[idx].id) && (events[idx].title||"").trim()) setEventField(idx,"id", slugFor(idx));
-    applyEventValidation(idx); markDirty("events"); return;
-  }
-  if(role === "time-pick"){ setEventField(idx,"time", timeInputToDisplay(el.value)); applyEventValidation(idx); markDirty("events"); return; }
-  if(k === undefined) return;
-  if(k === "hidden") return; // checkbox handled on change
-  let val = el.value;
-  if(el.dataset.num) val = val === "" ? 0 : Number(val);
-  events[idx][k] = val;
-  if(k === "title" && !originalEventIds.has(events[idx].id)){
-    setEventField(idx, "id", slugFor(idx));
-  }
-  if(k === "image") updateImgPreview(idx);
-  applyEventValidation(idx); markDirty("events");
-});
-eventsListEl.addEventListener("change", e=>{
-  const el = e.target;
-  if(el.dataset.k === "tone" && el.dataset.i !== undefined){
-    events[+el.dataset.i].tone = el.value; refreshEventHeader(+el.dataset.i); markDirty("events");
-  }
-  if(el.dataset.k === "hidden" && el.dataset.i !== undefined){
-    events[+el.dataset.i].hidden = el.checked?1:0; refreshEventHeader(+el.dataset.i); markDirty("events");
-  }
-  if(el.dataset.upimg !== undefined && el.files && el.files[0]){
-    uploadEventImage(+el.dataset.upimg, el.files[0]);
-    el.value = "";
-  }
-});
-eventsListEl.addEventListener("click", e=>{
-  const t = e.target;
-  if(t.dataset.upimgBtn !== undefined){
-    const inp = t.parentElement.querySelector("[data-upimg]");
-    if(inp) inp.click();
-    e.stopPropagation(); return;
-  }
-  if(t.dataset.up !== undefined){ moveEvent(+t.dataset.up,-1); e.stopPropagation(); return; }
-  if(t.dataset.down !== undefined){ moveEvent(+t.dataset.down, 1); e.stopPropagation(); return; }
-  if(t.dataset.dup !== undefined){ dupEvent(+t.dataset.dup); e.stopPropagation(); return; }
-  if(t.dataset.del !== undefined){ delEvent(+t.dataset.del); e.stopPropagation(); return; }
-  if(t.closest("[data-past-toggle]")){ pastEventsOpen = !pastEventsOpen; renderEvents(); return; }
-  const head = t.closest("[data-toggle]");
-  if(head){ const idx = +head.dataset.toggle; eOpen[idx] = !eOpen[idx]; renderEvents(); }
-});
-function moveEvent(i,dir){
-  const j = i+dir; if(j<0||j>=events.length) return;
-  [events[i],events[j]] = [events[j],events[i]];
-  const a=eOpen[i], b=eOpen[j]; eOpen[i]=b; eOpen[j]=a;
-  renderEvents(); markDirty("events");
-}
-function dupEvent(i){
-  const copy = JSON.parse(JSON.stringify(events[i]));
-  copy.id = uniqueEventSlug(slugify(copy.id||copy.title||"gathering")+"-copy", -1);
-  // A duplicate is a starting point for a NEW gathering — clear the date so the
-  // copy surfaces as an upcoming draft (not tucked into "Past") and prompts a
-  // fresh date. Everything else (place, blurb, price, photo…) carries over.
-  copy.date = ""; copy.eventDate = "";
-  events.splice(i+1,0,copy);
-  const next={}; Object.keys(eOpen).forEach(k=>{k=+k; next[k>i?k+1:k]=eOpen[k];});
-  Object.keys(eOpen).forEach(k=>delete eOpen[k]); Object.assign(eOpen,next);
-  eOpen[i+1]=true; renderEvents(); markDirty("events");
-}
-function delEvent(i){
-  if(!confirm(`Delete "${events[i].title||events[i].id||"this gathering"}"? This removes it from the list here; it's deleted from the site when you Save.`)) return;
-  events.splice(i,1);
-  const next={}; Object.keys(eOpen).forEach(k=>{k=+k; if(k===i)return; next[k>i?k-1:k]=eOpen[k];});
-  Object.keys(eOpen).forEach(k=>delete eOpen[k]); Object.assign(eOpen,next);
-  renderEvents(); markDirty("events");
-}
+/* ---- quotes ---- */
+collection({
+  key: "quotes",
+  endpoint: "/api/admin/quotes",
+  noun: "quote",
+  tones: ["cream","deep","rose","cyan","gold"],
+  empty: { title:"No quotes yet", body:"Add member quotes for the home page." },
+  savedMsg: "Saved ✓ The site is updated.",
 
-$("#addEventBtn").addEventListener("click", ()=>{
-  const e = blankEvent();
-  const today = new Date();
-  e.date = `${WD[today.getDay()]}, ${MO[today.getMonth()]} ${today.getDate()}`;
-  events.push(e); eOpen[events.length-1]=true; renderEvents(); markDirty("events");
-  window.scrollTo({top:document.body.scrollHeight, behavior:"smooth"});
-});
-$("#collapseEventsBtn").addEventListener("click", ()=>{
-  const anyOpen = Object.values(eOpen).some(Boolean);
-  Object.keys(eOpen).forEach(k=>delete eOpen[k]);
-  if(!anyOpen) events.forEach((_,i)=> eOpen[i]=true);
-  $("#collapseEventsBtn").textContent = anyOpen ? "Expand all" : "Collapse all";
-  renderEvents();
-});
-$("#reloadEventsBtn").addEventListener("click", loadEvents);
+  blank: () => ({ id:null, name:"", detail:"", tone:"cream", body:"", monogram:"", avatar:"", active:1 }),
+  fromApi: (o) => ({ id:o.id, name:o.name||"", detail:o.detail||"", tone:o.tone||"cream", body:o.body||"", monogram:o.monogram||"", avatar:o.avatar||"", active:o.active?1:0 }),
+  payload: (q) => ({ name:q.name, detail:q.detail, tone:q.tone, body:q.body, monogram:q.monogram, avatar:q.avatar, active:q.active }),
+  confirmDelete: (q) => `Delete ${q.name||"this quote"}? It's removed from the site when you Save.`,
 
-async function loadEvents(){
-  try{
-    setStatus("eventsStatus","Loading…");
-    const data = await api("GET","/api/admin/events");
-    events = data.map(o=>{ const c={}; EFIELDS.forEach(k=> c[k] = o[k]!==undefined ? o[k] : blankEvent()[k]); return c; });
-    originalEventIds = new Set(events.map(e=>e.id));
-    Object.keys(eOpen).forEach(k=>delete eOpen[k]);
-    dirty.events = false;
-    renderEvents();
-    setStatus("eventsStatus", `${events.length} gathering${events.length!==1?"s":""} loaded.`, "ok");
-    buildRsvpFilter();
-  }catch(err){ setStatus("eventsStatus", "Couldn’t load: "+err.message, "warn"); }
-}
-async function saveEvents(){
-  events.forEach((e,i)=>{ const id=(e.id||"").trim(); if(id) e.id = uniqueEventSlug(slugify(id), i); });
-  renderEvents();
-  let errors=0; events.forEach((_,i)=> errors += Object.keys(validateEvent(i).errs).length);
-  if(errors && !confirm(`${errors} field${errors>1?"s":""} still need fixing (shown in pink). Save anyway?`)) return;
-
-  const currentIds = events.map(e=>e.id);
-  const toDelete = [...originalEventIds].filter(id=> !currentIds.includes(id));
-  try{
-    setStatus("eventsStatus","Saving…");
-    for(const id of toDelete){ await api("DELETE","/api/admin/events/"+encodeURIComponent(id)); }
-    for(const e of events){
-      const payload = {}; EFIELDS.forEach(k=> payload[k]=e[k]);
-      if(originalEventIds.has(e.id)){ await api("PUT","/api/admin/events/"+encodeURIComponent(e.id), payload); }
-      else { await api("POST","/api/admin/events", payload); }
-    }
-    await api("POST","/api/admin/reorder", { type:"events", order: currentIds });
-    await loadEvents();
-    setStatus("eventsStatus","Saved ✓ The site is updated.","ok");
-  }catch(err){ setStatus("eventsStatus","Save failed: "+err.message,"warn"); }
-}
-
-/* =========================================================================
-   QUOTES
-   ========================================================================= */
-let quotes = [];
-let originalQuoteIds = new Set();
-const qOpen = {};
-const quotesListEl = $("#quotesList");
-
-function blankQuote(){ return { id:null, name:"", detail:"", tone:"cream", body:"", monogram:"", avatar:"", active:1 }; }
-function validateQuote(i){
-  const q = quotes[i]; const errs={};
-  if(!(q.name||"").trim()) errs.name = "Name is required.";
-  if(!(q.body||"").trim()) errs.body = "Quote text is required.";
-  return { errs };
-}
-function renderQuotes(){
-  if(quotes.length === 0){
-    quotesListEl.innerHTML = '<div class="empty"><h2>No quotes yet</h2><p>Add member quotes for the home page.</p></div>';
-    updateSaveInfo(); return;
-  }
-  quotesListEl.innerHTML = "";
-  quotes.forEach((_,i)=> quotesListEl.insertAdjacentHTML("beforeend", quoteCardHTML(i)));
-  quotes.forEach((_,i)=> applyQuoteValidation(i));
-  updateSaveInfo();
-}
-function quoteCardHTML(i){
-  const q = quotes[i];
-  const tone = QUOTE_TONES.includes(q.tone) ? q.tone : "cream";
-  const off = !q.active;
-  const badge = off ? '<span class="badge off">hidden</span>' : '';
-  const preview = (q.body||"").slice(0,60) + ((q.body||"").length>60?"…":"");
-  return `
-  <div class="card tone-${tone}${qOpen[i]?" open":""}${off?" inactive":""}" data-qcard="${i}">
-    <div class="card-head" data-qtoggle="${i}">
-      <div>
-        <div class="title">${escapeHtml(q.name||"(no name)")} ${badge}</div>
-        <div class="meta">${escapeHtml(q.detail||"")}${q.detail?" · ":""}${escapeHtml(preview)}</div>
-      </div>
-      <div class="controls">
-        <button class="icon ghost" data-qup="${i}" title="Move up" ${i===0?"disabled":""}>↑</button>
-        <button class="icon ghost" data-qdown="${i}" title="Move down" ${i===quotes.length-1?"disabled":""}>↓</button>
-        <button class="icon ghost" data-qdel="${i}" title="Delete">✕</button>
-        <span class="chev">▸</span>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="field">
-        <label>Name <span class="req">*</span></label>
-        <input type="text" data-qi="${i}" data-qk="name" value="${escapeAttr(q.name)}" placeholder="e.g. Danielle">
-        <div class="field-msg" data-qmsg="name"></div>
-      </div>
-      <div class="field">
-        <label>Detail <span class="hint">small line under the name</span></label>
-        <input type="text" data-qi="${i}" data-qk="detail" value="${escapeAttr(q.detail)}" placeholder="e.g. moved here in January">
-        <div class="field-msg"></div>
-      </div>
-      <div class="field">
-        <label>Tone <span class="hint">accent colour</span></label>
-        <select data-qi="${i}" data-qk="tone">
-          ${QUOTE_TONES.map(t=>`<option value="${t}" ${t===tone?"selected":""}>${t}</option>`).join("")}
-        </select>
-        <div class="field-msg"></div>
-      </div>
-      <div class="field">
-        <label>Monogram <span class="hint">shown when there's no photo — defaults to first letter</span></label>
-        <input type="text" maxlength="2" data-qi="${i}" data-qk="monogram" value="${escapeAttr(q.monogram)}" placeholder="D">
-        <div class="field-msg"></div>
-      </div>
-      <div class="field full">
-        <label>Photo <span class="hint">optional — their face instead of the monogram; upload or paste a URL</span></label>
-        <div class="row">
-          <input type="text" data-qi="${i}" data-qk="avatar" value="${escapeAttr(q.avatar)}" placeholder="https://…  — or use Upload →">
-          <button type="button" class="mini ghost" data-qupimg-btn="${i}">Upload</button>
-          <input type="file" accept="image/png,image/jpeg,image/webp" data-qupimg="${i}" hidden>
-        </div>
-        <div class="imgprev" data-qimgprev="${i}">${q.avatar?`<img src="${escapeAttr(q.avatar)}" alt="">`:""}</div>
-        <div class="field-msg" data-qmsg="avatar"></div>
-      </div>
-      <div class="field full">
-        <label>Quote <span class="req">*</span></label>
-        <textarea data-qi="${i}" data-qk="body" placeholder="What she said…">${escapeHtml(q.body)}</textarea>
-        <div class="field-msg" data-qmsg="body"></div>
-      </div>
-      <div class="field full">
-        <div class="checkrow">
-          <input type="checkbox" id="qactive-${i}" data-qi="${i}" data-qk="active" ${q.active?"checked":""}>
-          <label for="qactive-${i}">Show this quote on the site</label>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-function applyQuoteValidation(i){
-  const card = quotesListEl.querySelector(`.card[data-qcard="${i}"]`);
-  if(!card) return;
-  const v = validateQuote(i);
-  ["name","body"].forEach(k=>{
-    const msg = card.querySelector(`[data-qmsg="${k}"]`);
-    const input = card.querySelector(`[data-qk="${k}"]`);
-    if(!msg) return;
-    if(v.errs[k]){ msg.textContent=v.errs[k]; msg.className="field-msg err"; if(input) input.classList.add("err"); }
-    else { msg.textContent=""; msg.className="field-msg"; if(input) input.classList.remove("err"); }
-  });
-}
-function refreshQuoteHeader(i){
-  const card = quotesListEl.querySelector(`.card[data-qcard="${i}"]`);
-  if(!card) return;
-  const q = quotes[i];
-  const tone = QUOTE_TONES.includes(q.tone) ? q.tone : "cream";
-  const off = !q.active;
-  const badge = off ? '<span class="badge off">hidden</span>' : '';
-  const preview = (q.body||"").slice(0,60) + ((q.body||"").length>60?"…":"");
-  card.querySelector(".card-head .title").innerHTML = escapeHtml(q.name||"(no name)")+" "+badge;
-  card.querySelector(".card-head .meta").textContent = (q.detail?q.detail+" · ":"")+preview;
-  card.className = "card tone-"+tone+(qOpen[i]?" open":"")+(off?" inactive":"");
-}
-function updateQuoteImgPreview(i){
-  const card = quotesListEl.querySelector(`.card[data-qcard="${i}"]`);
-  if(!card) return;
-  const prev = card.querySelector(`[data-qimgprev="${i}"]`);
-  const url = (quotes[i].avatar||"").trim();
-  if(prev) prev.innerHTML = url ? `<img src="${escapeAttr(url)}" alt="">` : "";
-}
-async function uploadQuoteImage(idx, file){
-  const card = quotesListEl.querySelector(`.card[data-qcard="${idx}"]`);
-  const msg = card && card.querySelector('[data-qmsg="avatar"]');
-  const setMsg = (t,k)=>{ if(msg){ msg.textContent=t; msg.className="field-msg"+(k?" "+k:""); } };
-  try{
-    setMsg("Shrinking image…");
-    const {blob} = await resizeImage(file, 600);
-    const fd = new FormData();
-    fd.append("file", blob, (file.name.replace(/\.[^.]+$/,"")||"avatar")+".jpg");
-    setMsg("Uploading…");
-    const r = await fetch("/api/admin/upload", { method:"POST", body:fd });
-    if(r.status===401 || r.status===403) throw authError(r.status, await r.text().catch(()=>""));
-    const data = await r.json().catch(()=>null);
-    if(!r.ok) throw new Error((data && data.error) ? data.error : ("HTTP "+r.status));
-    quotes[idx].avatar = data.url;
-    const inp = card && card.querySelector('[data-qk="avatar"]');
-    if(inp) inp.value = data.url;
-    updateQuoteImgPreview(idx);
-    markDirty("quotes");
-    setMsg("Uploaded ✓");
-  }catch(err){ setMsg("Upload failed: "+err.message, "err"); }
-}
-quotesListEl.addEventListener("input", e=>{
-  const el = e.target; const i = el.dataset.qi;
-  if(i === undefined) return;
-  const idx=+i, k=el.dataset.qk;
-  if(k==="active") return; // checkbox handled on change
-  quotes[idx][k] = el.value;
-  if(k==="avatar") updateQuoteImgPreview(idx);
-  applyQuoteValidation(idx); refreshQuoteHeader(idx); markDirty("quotes");
+  validate(q){
+    const errs = {};
+    if(!(q.name||"").trim()) errs.name = "Name is required.";
+    if(!(q.body||"").trim()) errs.body = "Quote text is required.";
+    return { errs };
+  },
+  head(q){
+    const preview = (q.body||"").slice(0,60) + ((q.body||"").length>60?"…":"");
+    return {
+      title: q.name || "(no name)",
+      meta: (q.detail ? q.detail+" · " : "") + preview,
+      badges: q.active ? "" : '<span class="badge off">hidden</span>',
+      dim: !q.active,
+    };
+  },
+  fields: () => [
+    { key:"name", label:"Name", required:true, placeholder:"e.g. Danielle" },
+    { key:"detail", label:"Detail", hint:"small line under the name", placeholder:"e.g. moved here in January" },
+    { key:"tone", label:"Tone", hint:"accent colour", type:"select", options:["cream","deep","rose","cyan","gold"] },
+    { key:"monogram", label:"Monogram", hint:"shown when there's no photo — defaults to first letter", placeholder:"D" },
+    { key:"avatar", label:"Photo", hint:"optional — their face instead of the monogram; upload or paste a URL", type:"image", full:true, maxDim:600 },
+    { key:"body", label:"Quote", required:true, type:"textarea", full:true, placeholder:"What she said…" },
+    { key:"active", label:"Show this quote on the site", type:"check" },
+  ],
 });
-quotesListEl.addEventListener("change", e=>{
-  const el = e.target; const i = el.dataset.qi;
-  if(i === undefined) return;
-  const idx=+i, k=el.dataset.qk;
-  if(el.dataset.qupimg !== undefined && el.files && el.files[0]){ uploadQuoteImage(idx, el.files[0]); el.value=""; return; }
-  if(k==="active"){ quotes[idx].active = el.checked?1:0; refreshQuoteHeader(idx); markDirty("quotes"); }
-  else if(k==="tone"){ quotes[idx].tone = el.value; refreshQuoteHeader(idx); markDirty("quotes"); }
-});
-quotesListEl.addEventListener("click", e=>{
-  const t = e.target;
-  if(t.dataset.qupimgBtn !== undefined){ const inp=t.parentElement.querySelector("[data-qupimg]"); if(inp) inp.click(); e.stopPropagation(); return; }
-  if(t.dataset.qup !== undefined){ moveQuote(+t.dataset.qup,-1); e.stopPropagation(); return; }
-  if(t.dataset.qdown !== undefined){ moveQuote(+t.dataset.qdown, 1); e.stopPropagation(); return; }
-  if(t.dataset.qdel !== undefined){ delQuote(+t.dataset.qdel); e.stopPropagation(); return; }
-  const head = t.closest("[data-qtoggle]");
-  if(head){ const idx=+head.dataset.qtoggle; qOpen[idx]=!qOpen[idx]; renderQuotes(); }
-});
-function moveQuote(i,dir){
-  const j=i+dir; if(j<0||j>=quotes.length) return;
-  [quotes[i],quotes[j]]=[quotes[j],quotes[i]];
-  const a=qOpen[i], b=qOpen[j]; qOpen[i]=b; qOpen[j]=a;
-  renderQuotes(); markDirty("quotes");
-}
-function delQuote(i){
-  if(!confirm(`Delete ${quotes[i].name||"this quote"}? It's removed from the site when you Save.`)) return;
-  quotes.splice(i,1);
-  const next={}; Object.keys(qOpen).forEach(k=>{k=+k; if(k===i)return; next[k>i?k-1:k]=qOpen[k];});
-  Object.keys(qOpen).forEach(k=>delete qOpen[k]); Object.assign(qOpen,next);
-  renderQuotes(); markDirty("quotes");
-}
-$("#addQuoteBtn").addEventListener("click", ()=>{
-  quotes.push(blankQuote()); qOpen[quotes.length-1]=true; renderQuotes(); markDirty("quotes");
-  window.scrollTo({top:document.body.scrollHeight, behavior:"smooth"});
-});
-$("#collapseQuotesBtn").addEventListener("click", ()=>{
-  const anyOpen = Object.values(qOpen).some(Boolean);
-  Object.keys(qOpen).forEach(k=>delete qOpen[k]);
-  if(!anyOpen) quotes.forEach((_,i)=> qOpen[i]=true);
-  $("#collapseQuotesBtn").textContent = anyOpen ? "Expand all" : "Collapse all";
-  renderQuotes();
-});
-$("#reloadQuotesBtn").addEventListener("click", loadQuotes);
 
-async function loadQuotes(){
-  try{
-    setStatus("quotesStatus","Loading…");
-    const data = await api("GET","/api/admin/quotes");
-    quotes = data.map(o=>({ id:o.id, name:o.name||"", detail:o.detail||"", tone:o.tone||"cream", body:o.body||"", monogram:o.monogram||"", avatar:o.avatar||"", active:o.active?1:0 }));
-    originalQuoteIds = new Set(quotes.map(q=>q.id).filter(x=>x!=null));
-    Object.keys(qOpen).forEach(k=>delete qOpen[k]);
-    dirty.quotes = false;
-    renderQuotes();
-    setStatus("quotesStatus", `${quotes.length} quote${quotes.length!==1?"s":""} loaded.`, "ok");
-  }catch(err){ setStatus("quotesStatus","Couldn’t load: "+err.message,"warn"); }
-}
-async function saveQuotes(){
-  let errors=0; quotes.forEach((_,i)=> errors += Object.keys(validateQuote(i).errs).length);
-  if(errors && !confirm(`${errors} field${errors>1?"s":""} still need fixing (shown in pink). Save anyway?`)) return;
-
-  const currentIds = quotes.map(q=>q.id).filter(x=>x!=null);
-  const toDelete = [...originalQuoteIds].filter(id=> !currentIds.includes(id));
-  try{
-    setStatus("quotesStatus","Saving…");
-    for(const id of toDelete){ await api("DELETE","/api/admin/quotes/"+id); }
-    // Create/update, capturing new ids so we can order them.
-    const orderedIds = [];
-    for(const q of quotes){
-      const payload = { name:q.name, detail:q.detail, tone:q.tone, body:q.body, monogram:q.monogram, avatar:q.avatar, active:q.active };
-      if(q.id!=null){ await api("PUT","/api/admin/quotes/"+q.id, payload); orderedIds.push(q.id); }
-      else { const r = await api("POST","/api/admin/quotes", payload); q.id = r.id; orderedIds.push(r.id); }
-    }
-    await api("POST","/api/admin/reorder", { type:"quotes", order: orderedIds });
-    await loadQuotes();
-    setStatus("quotesStatus","Saved ✓ The site is updated.","ok");
-  }catch(err){ setStatus("quotesStatus","Save failed: "+err.message,"warn"); }
-}
-
-/* =========================================================================
-   LINKS  — the buttons on the public /links page
-   ========================================================================= */
-const LINK_TONES = ["rose","cyan","gold","cream"];
+/* ---- links ---- */
 // Keys must match the icon set in assets/js/links.js.
-const LINK_ICONS = [
-  ["", "None"],
-  ["link", "Generic link"],
-  ["instagram", "Instagram"],
-  ["facebook", "Facebook"],
-  ["email", "Email"],
-  ["calendar", "Calendar"],
-  ["ticket", "Ticket"],
-  ["heart", "Heart"],
+const LINK_ICON_OPTIONS = [
+  ["", "None"], ["link", "Generic link"], ["instagram", "Instagram"], ["facebook", "Facebook"],
+  ["email", "Email"], ["calendar", "Calendar"], ["ticket", "Ticket"], ["heart", "Heart"],
 ];
-let links = [];
-let originalLinkIds = new Set();
-const lOpen = {};
-const linksListEl = $("#linksList");
 
-function blankLink(){ return { id:null, label:"", url:"", subtitle:"", icon:"link", tone:"rose", active:1 }; }
-function validateLink(i){
-  const l = links[i]; const errs={};
-  if(!(l.label||"").trim()) errs.label = "Button text is required.";
-  const url = (l.url||"").trim();
-  if(!url) errs.url = "Link address is required.";
-  else if(!/^(https?:\/\/|mailto:|tel:|\/)/i.test(url)) errs.url = "Start with https:// (or mailto: for an email address).";
-  return { errs };
-}
-function renderLinks(){
-  if(links.length === 0){
-    linksListEl.innerHTML = '<div class="empty"><h2>No links yet</h2><p>Add the buttons that should appear on the links page.</p></div>';
-    updateSaveInfo(); return;
-  }
-  linksListEl.innerHTML = "";
-  links.forEach((_,i)=> linksListEl.insertAdjacentHTML("beforeend", linkCardHTML(i)));
-  links.forEach((_,i)=> applyLinkValidation(i));
-  updateSaveInfo();
-}
-function linkCardHTML(i){
-  const l = links[i];
-  const tone = LINK_TONES.includes(l.tone) ? l.tone : "rose";
-  const off = !l.active;
-  const badge = off ? '<span class="badge off">hidden</span>' : '';
-  return `
-  <div class="card tone-${tone}${lOpen[i]?" open":""}${off?" inactive":""}" data-lcard="${i}">
-    <div class="card-head" data-ltoggle="${i}">
-      <div>
-        <div class="title">${escapeHtml(l.label||"(no text)")} ${badge}</div>
-        <div class="meta">${escapeHtml(l.url||"")}</div>
-      </div>
-      <div class="controls">
-        <button class="icon ghost" data-lup="${i}" title="Move up" ${i===0?"disabled":""}>↑</button>
-        <button class="icon ghost" data-ldown="${i}" title="Move down" ${i===links.length-1?"disabled":""}>↓</button>
-        <button class="icon ghost" data-ldel="${i}" title="Delete">✕</button>
-        <span class="chev">▸</span>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="field">
-        <label>Button text <span class="req">*</span></label>
-        <input type="text" data-li="${i}" data-lk="label" value="${escapeAttr(l.label)}" placeholder="e.g. Follow us on Instagram">
-        <div class="field-msg" data-lmsg="label"></div>
-      </div>
-      <div class="field">
-        <label>Where it goes <span class="req">*</span></label>
-        <input type="text" data-li="${i}" data-lk="url" value="${escapeAttr(l.url)}" placeholder="https://…">
-        <div class="field-msg" data-lmsg="url"></div>
-      </div>
-      <div class="field">
-        <label>Small line underneath <span class="hint">optional</span></label>
-        <input type="text" data-li="${i}" data-lk="subtitle" value="${escapeAttr(l.subtitle)}" placeholder="e.g. @ingreatcompanysav">
-        <div class="field-msg"></div>
-      </div>
-      <div class="field">
-        <label>Icon</label>
-        <select data-li="${i}" data-lk="icon">
-          ${LINK_ICONS.map(([v,t])=>`<option value="${v}" ${v===(l.icon||"")?"selected":""}>${t}</option>`).join("")}
-        </select>
-        <div class="field-msg"></div>
-      </div>
-      <div class="field">
-        <label>Tone <span class="hint">accent colour</span></label>
-        <select data-li="${i}" data-lk="tone">
-          ${LINK_TONES.map(t=>`<option value="${t}" ${t===tone?"selected":""}>${t}</option>`).join("")}
-        </select>
-        <div class="field-msg"></div>
-      </div>
-      <div class="field full">
-        <div class="checkrow">
-          <input type="checkbox" id="lactive-${i}" data-li="${i}" data-lk="active" ${l.active?"checked":""}>
-          <label for="lactive-${i}">Show this link on the links page</label>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-function applyLinkValidation(i){
-  const card = linksListEl.querySelector(`.card[data-lcard="${i}"]`);
-  if(!card) return;
-  const v = validateLink(i);
-  ["label","url"].forEach(k=>{
-    const msg = card.querySelector(`[data-lmsg="${k}"]`);
-    const input = card.querySelector(`[data-lk="${k}"]`);
-    if(!msg) return;
-    if(v.errs[k]){ msg.textContent=v.errs[k]; msg.className="field-msg err"; if(input) input.classList.add("err"); }
-    else { msg.textContent=""; msg.className="field-msg"; if(input) input.classList.remove("err"); }
-  });
-}
-function refreshLinkHeader(i){
-  const card = linksListEl.querySelector(`.card[data-lcard="${i}"]`);
-  if(!card) return;
-  const l = links[i];
-  const tone = LINK_TONES.includes(l.tone) ? l.tone : "rose";
-  const off = !l.active;
-  const badge = off ? '<span class="badge off">hidden</span>' : '';
-  card.querySelector(".card-head .title").innerHTML = escapeHtml(l.label||"(no text)")+" "+badge;
-  card.querySelector(".card-head .meta").textContent = l.url||"";
-  card.className = "card tone-"+tone+(lOpen[i]?" open":"")+(off?" inactive":"");
-}
-linksListEl.addEventListener("input", e=>{
-  const el = e.target; const i = el.dataset.li;
-  if(i === undefined) return;
-  const idx=+i, k=el.dataset.lk;
-  if(k==="active") return; // checkbox handled on change
-  links[idx][k] = el.value;
-  applyLinkValidation(idx); refreshLinkHeader(idx); markDirty("links");
-});
-linksListEl.addEventListener("change", e=>{
-  const el = e.target; const i = el.dataset.li;
-  if(i === undefined) return;
-  const idx=+i, k=el.dataset.lk;
-  if(k==="active"){ links[idx].active = el.checked?1:0; refreshLinkHeader(idx); markDirty("links"); }
-  else if(k==="tone" || k==="icon"){ links[idx][k] = el.value; refreshLinkHeader(idx); markDirty("links"); }
-});
-linksListEl.addEventListener("click", e=>{
-  const t = e.target;
-  if(t.dataset.lup !== undefined){ moveLink(+t.dataset.lup,-1); e.stopPropagation(); return; }
-  if(t.dataset.ldown !== undefined){ moveLink(+t.dataset.ldown, 1); e.stopPropagation(); return; }
-  if(t.dataset.ldel !== undefined){ delLink(+t.dataset.ldel); e.stopPropagation(); return; }
-  const head = t.closest("[data-ltoggle]");
-  if(head){ const idx=+head.dataset.ltoggle; lOpen[idx]=!lOpen[idx]; renderLinks(); }
-});
-function moveLink(i,dir){
-  const j=i+dir; if(j<0||j>=links.length) return;
-  [links[i],links[j]]=[links[j],links[i]];
-  const a=lOpen[i], b=lOpen[j]; lOpen[i]=b; lOpen[j]=a;
-  renderLinks(); markDirty("links");
-}
-function delLink(i){
-  if(!confirm(`Delete ${links[i].label||"this link"}? It's removed from the links page when you Save.`)) return;
-  links.splice(i,1);
-  const next={}; Object.keys(lOpen).forEach(k=>{k=+k; if(k===i)return; next[k>i?k-1:k]=lOpen[k];});
-  Object.keys(lOpen).forEach(k=>delete lOpen[k]); Object.assign(lOpen,next);
-  renderLinks(); markDirty("links");
-}
-$("#addLinkBtn").addEventListener("click", ()=>{
-  links.push(blankLink()); lOpen[links.length-1]=true; renderLinks(); markDirty("links");
-  window.scrollTo({top:document.body.scrollHeight, behavior:"smooth"});
-});
-$("#collapseLinksBtn").addEventListener("click", ()=>{
-  const anyOpen = Object.values(lOpen).some(Boolean);
-  Object.keys(lOpen).forEach(k=>delete lOpen[k]);
-  if(!anyOpen) links.forEach((_,i)=> lOpen[i]=true);
-  $("#collapseLinksBtn").textContent = anyOpen ? "Expand all" : "Collapse all";
-  renderLinks();
-});
-$("#reloadLinksBtn").addEventListener("click", loadLinks);
+collection({
+  key: "links",
+  endpoint: "/api/admin/links",
+  noun: "link",
+  tones: ["rose","cyan","gold","cream"],
+  empty: { title:"No links yet", body:"Add the buttons that should appear on the links page." },
+  savedMsg: "Saved ✓ The links page is updated.",
 
-async function loadLinks(){
-  try{
-    setStatus("linksStatus","Loading…");
-    const data = await api("GET","/api/admin/links");
-    links = data.map(o=>({ id:o.id, label:o.label||"", url:o.url||"", subtitle:o.subtitle||"", icon:o.icon||"", tone:o.tone||"rose", active:o.active?1:0 }));
-    originalLinkIds = new Set(links.map(l=>l.id).filter(x=>x!=null));
-    Object.keys(lOpen).forEach(k=>delete lOpen[k]);
-    dirty.links = false;
-    renderLinks();
-    setStatus("linksStatus", `${links.length} link${links.length!==1?"s":""} loaded.`, "ok");
-  }catch(err){ setStatus("linksStatus","Couldn’t load: "+err.message,"warn"); }
-}
-async function saveLinks(){
-  let errors=0; links.forEach((_,i)=> errors += Object.keys(validateLink(i).errs).length);
-  if(errors && !confirm(`${errors} field${errors>1?"s":""} still need fixing (shown in pink). Save anyway?`)) return;
+  blank: () => ({ id:null, label:"", url:"", subtitle:"", icon:"link", tone:"rose", active:1 }),
+  fromApi: (o) => ({ id:o.id, label:o.label||"", url:o.url||"", subtitle:o.subtitle||"", icon:o.icon||"", tone:o.tone||"rose", active:o.active?1:0 }),
+  payload: (l) => ({ label:l.label, url:l.url, subtitle:l.subtitle, icon:l.icon, tone:l.tone, active:l.active }),
+  confirmDelete: (l) => `Delete ${l.label||"this link"}? It's removed from the links page when you Save.`,
 
-  const currentIds = links.map(l=>l.id).filter(x=>x!=null);
-  const toDelete = [...originalLinkIds].filter(id=> !currentIds.includes(id));
-  try{
-    setStatus("linksStatus","Saving…");
-    for(const id of toDelete){ await api("DELETE","/api/admin/links/"+id); }
-    // Create/update, capturing new ids so we can order them.
-    const orderedIds = [];
-    for(const l of links){
-      const payload = { label:l.label, url:l.url, subtitle:l.subtitle, icon:l.icon, tone:l.tone, active:l.active };
-      if(l.id!=null){ await api("PUT","/api/admin/links/"+l.id, payload); orderedIds.push(l.id); }
-      else { const r = await api("POST","/api/admin/links", payload); l.id = r.id; orderedIds.push(r.id); }
-    }
-    await api("POST","/api/admin/reorder", { type:"links", order: orderedIds });
-    await loadLinks();
-    setStatus("linksStatus","Saved ✓ The links page is updated.","ok");
-  }catch(err){ setStatus("linksStatus","Save failed: "+err.message,"warn"); }
-}
+  validate(l){
+    const errs = {};
+    if(!(l.label||"").trim()) errs.label = "Button text is required.";
+    const url = (l.url||"").trim();
+    if(!url) errs.url = "Link address is required.";
+    else if(!/^(https?:\/\/|mailto:|tel:|\/)/i.test(url)) errs.url = "Start with https:// (or mailto: for an email address).";
+    return { errs };
+  },
+  head: (l) => ({
+    title: l.label || "(no text)",
+    meta: l.url || "",
+    badges: l.active ? "" : '<span class="badge off">hidden</span>',
+    dim: !l.active,
+  }),
+  fields: () => [
+    { key:"label", label:"Button text", required:true, placeholder:"e.g. Follow us on Instagram" },
+    { key:"url", label:"Where it goes", required:true, placeholder:"https://…" },
+    { key:"subtitle", label:"Small line underneath", hint:"optional", placeholder:"e.g. @ingreatcompanysav" },
+    { key:"icon", label:"Icon", type:"select", options:LINK_ICON_OPTIONS },
+    { key:"tone", label:"Tone", hint:"accent colour", type:"select", options:["rose","cyan","gold","cream"] },
+    { key:"active", label:"Show this link on the links page", type:"check" },
+  ],
+});
 
 /* =========================================================================
    RSVPS
@@ -1290,6 +1091,7 @@ async function saveLinks(){
 const rsvpsTableEl = $("#rsvpsTable");
 let rsvpEventLabels = {};
 function buildRsvpFilter(){
+  const events = COLLECTIONS.events.rows;
   rsvpEventLabels = {};
   events.forEach(e=> rsvpEventLabels[e.id] = e.title || e.id);
   const sel = $("#rsvpFilter");
@@ -1658,11 +1460,10 @@ $("#subsCsvBtn").addEventListener("click", ()=>{
    ========================================================================= */
 function setStatus(id, msg, kind){ const el=$("#"+id); if(!el) return; el.textContent=msg||""; el.className="status grow"+(kind?" "+kind:""); }
 
-// The tabs that hold unsaved, batch-saved state. photos/rsvps save immediately
-// and so have no entry here.
-const TAB_LABELS  = { events:"gathering", quotes:"quote", links:"link" };
-const TAB_SAVERS  = { events:()=>saveEvents(), quotes:()=>saveQuotes(), links:()=>saveLinks() };
-const TAB_LOADERS = { events:()=>loadEvents(), quotes:()=>loadQuotes(), links:()=>loadLinks() };
+// COLLECTIONS holds exactly the tabs with unsaved, batch-saved state — photos
+// and rsvps write immediately and are not in it, which is what `batched` means
+// everywhere below.
+const batched = (tab) => COLLECTIONS[tab];
 const dirtyTabs = () => Object.keys(dirty).filter(t => dirty[t]);
 const plural = (n, noun) => `<b>${n}</b> ${noun}${n!==1?"s":""}`;
 
@@ -1673,7 +1474,7 @@ function switchTab(tab){
   $("#panel-"+tab).classList.add("active");
   // Keep the bar up on photos/rsvps when another tab still has unsaved work —
   // hiding it is how that work used to disappear from view and get lost.
-  const showSave = !!TAB_SAVERS[tab] || dirtyTabs().length > 0;
+  const showSave = !!batched(tab) || dirtyTabs().length > 0;
   $("#savebar").style.display = showSave ? "" : "none";
   if(tab==="rsvps") loadRsvps();
   if(tab==="photos") loadPhotos();
@@ -1685,23 +1486,19 @@ document.querySelectorAll(".tab").forEach(b=> b.addEventListener("click", ()=> s
 
 function updateSaveInfo(){
   const info = $("#saveInfo");
-  const counts = {
-    events: ()=>({ txt: plural(events.length,"gathering"), errs: events.reduce((a,_,i)=> a+Object.keys(validateEvent(i).errs).length, 0) }),
-    quotes: ()=>({ txt: plural(quotes.length,"quote"),     errs: quotes.reduce((a,_,i)=> a+Object.keys(validateQuote(i).errs).length, 0) }),
-    links:  ()=>({ txt: plural(links.length,"link"),       errs: links.reduce((a,_,i)=> a+Object.keys(validateLink(i).errs).length, 0) }),
-  };
   const parts = [];
-  if(counts[activeTab]){
-    const { txt, errs } = counts[activeTab]();
-    parts.push(txt);
+  const col = batched(activeTab);
+  if(col){
+    parts.push(plural(col.count(), col.spec.noun));
     if(dirty[activeTab]) parts.push("unsaved changes");
+    const errs = col.errorCount();
     if(errs) parts.push(`<span class="warnc">⚠ ${errs} to fix</span>`);
   }
   // Unsaved work on a tab you are not looking at is the easy thing to lose, so
   // name it here — Save acts on every dirty tab, not just the visible one.
   const others = dirtyTabs().filter(t => t !== activeTab);
   if(others.length){
-    const names = others.map(t => TAB_LABELS[t]+"s").join(" and ");
+    const names = others.map(t => batched(t).spec.noun+"s").join(" and ");
     parts.push(`<span class="warnc">unsaved ${names} too</span>`);
   }
   info.innerHTML = parts.join(" · ");
@@ -1711,16 +1508,16 @@ function updateSaveInfo(){
 // silently dropped a deleted gathering when the client saved from Quotes.
 $("#saveBtn").addEventListener("click", async ()=>{
   const todo = dirtyTabs();
-  if(!todo.length && TAB_SAVERS[activeTab]) todo.push(activeTab); // force-save the visible tab
-  for(const t of todo){ await TAB_SAVERS[t](); }
+  if(!todo.length && batched(activeTab)) todo.push(activeTab); // force-save the visible tab
+  for(const t of todo){ await batched(t).save(); }
   updateSaveInfo();
 });
 $("#discardBtn").addEventListener("click", async ()=>{
   const todo = dirtyTabs();
-  if(!todo.length){ if(TAB_LOADERS[activeTab]) await TAB_LOADERS[activeTab](); return; }
-  const names = todo.map(t => TAB_LABELS[t]+" changes").join(" and ");
+  if(!todo.length){ if(batched(activeTab)) await batched(activeTab).load(); return; }
+  const names = todo.map(t => batched(t).spec.noun+" changes").join(" and ");
   if(!confirm(`Discard unsaved ${names}?`)) return;
-  for(const t of todo){ await TAB_LOADERS[t](); }
+  for(const t of todo){ await batched(t).load(); }
   updateSaveInfo();
 });
 window.addEventListener("beforeunload", e=>{ if(dirtyTabs().length){ e.preventDefault(); e.returnValue=""; } });
@@ -1736,9 +1533,8 @@ fetch("/cdn-cgi/access/get-identity")
 
 /* ---- Boot ---- */
 (async function boot(){
-  await loadEvents();
-  await loadQuotes();
-  await loadLinks();
+  // Events first: the RSVP tab's filter is built from them.
+  for(const t of ["events","quotes","links"]) await COLLECTIONS[t].load();
 })();
 </script>
 </body>
