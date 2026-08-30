@@ -89,7 +89,7 @@ Add these as **Secret** (encrypted) values, for Production (and Preview if shown
 | `APPS_SCRIPT_URL` | The Google Apps Script web-app `/exec` URL (step 6) |
 | `APPS_SCRIPT_TOKEN` | A long random string; must match the Apps Script's `RSVP_TOKEN` |
 | `TURNSTILE_SECRET` | Turnstile secret key (step 5) |
-| `ACCESS_REQUIRED` | Set to `1` — defense-in-depth: the admin API also rejects any request with no Cloudflare Access identity |
+| `ACCESS_REQUIRED` | Set to `1` — defense-in-depth: the admin API also verifies the Cloudflare Access JWT (`Cf-Access-Jwt-Assertion` header or `CF_Authorization` cookie) and rejects anything without a valid one |
 
 Redeploy (or push a commit) so the new values take effect. Until you set these,
 RSVPs still save to the database — they just don't copy to the Sheet, and the

@@ -98,7 +98,7 @@ export const quoteFromBody = (b = {}) => ({
 });
 
 // --- photos -----------------------------------------------------------------
-export const PHOTO_SLOTS = ['hero', 'gallery', 'story', 'join'];
+export const PHOTO_SLOTS = ['hero', 'gallery', 'join'];
 
 // Binary lives in R2; we serve it through the /img/<key> function.
 export const photoUrl = (r) => '/img/' + r.r2_key;
