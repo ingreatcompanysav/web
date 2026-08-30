@@ -17,14 +17,23 @@
   <meta property="og:title" content="In Great Company — a women's social group in Savannah, GA">
   <meta property="og:description" content="New to town, starting a new chapter, or craving real friendship — there's a seat here for you.">
   <meta property="og:url" content="https://ingreatcompanysav.com/">
-  <meta property="og:image" content="https://ingreatcompanysav.com/assets/img/photo-hero.jpg">
-  <meta property="og:image:alt" content="Women gathered together at an In Great Company event in Savannah.">
+  <!-- The wordmark on the brand teal, not a photo. photo-hero.jpg is portrait
+       (1000x1249): a 1.91:1 card centre-crops it, dropping 58% of the height
+       and cutting faces. og-card.jpg is built at the card's own ratio.
+       The site is hash-routed, so scrapers never see #gatherings / #event/x —
+       this one card is the preview for every shareable URL on the site. -->
+  <meta property="og:image" content="https://ingreatcompanysav.com/assets/img/og-card.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="In Great Company">
 
   <!-- Twitter/X card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="In Great Company — a women's social group in Savannah, GA">
   <meta name="twitter:description" content="New to town, starting a new chapter, or craving real friendship — there's a seat here for you.">
-  <meta name="twitter:image" content="https://ingreatcompanysav.com/assets/img/photo-hero.jpg">
+  <meta name="twitter:image" content="https://ingreatcompanysav.com/assets/img/og-card.jpg">
+  <meta name="twitter:image:alt" content="In Great Company">
 
   <!-- Fonts: Playfair Display, Montserrat, Kolker Brush (Google); Sisterhood self-hosted in base.css -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
