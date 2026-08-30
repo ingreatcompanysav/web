@@ -1,0 +1,82 @@
+/* ==========================================================================
+   Standalone card page — /unsubscribe and /404
+
+   Both are one centred card on a wash: logo, title, lead, an action, some
+   fine print. They are not part of the SPA and deliberately do not load
+   components.css, which is 400 lines of homepage. What they do share is this
+   shape, and they used to carry a byte-identical copy of it each under a
+   different class prefix (.u-* and .e-*) — so a change to the card meant the
+   same edit twice, and the last logo swap was exactly that.
+
+   Anything only one page needs (the unsubscribe form's inputs) stays in that
+   page, so neither ships the other's CSS.
+   ========================================================================== */
+
+body{
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background:var(--wash-golden);
+  background-attachment:fixed;
+  padding:var(--gutter);
+}
+
+.page-card{
+  width:100%;
+  max-width:480px;
+  background:var(--surface-card);
+  border:var(--border-w) solid var(--border-hairline);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lg);
+  padding:clamp(28px,5vw,44px);
+  text-align:center;
+  animation:igcRise var(--dur-slow) var(--ease-soft) both;
+}
+
+.page-logo{width:112px;height:auto;margin:0 auto var(--space-6)}
+
+.page-title{
+  font-family:var(--font-display);
+  font-size:var(--text-display-s);
+  font-weight:var(--weight-medium);
+  color:var(--text-strong);
+  margin:0 0 var(--space-3);
+}
+
+.page-lead{
+  font-size:var(--text-body-m);
+  line-height:var(--leading-body);
+  color:var(--text-muted);
+  margin:0 0 var(--space-6);
+}
+
+/* Worn by a <button> on /unsubscribe and an <a> on /404, hence both
+   text-decoration and cursor. `:not(:disabled)` always matches an anchor, so
+   the hover and press states are shared rather than written twice. */
+.page-btn{
+  display:inline-block;
+  font-size:var(--text-body-m);
+  font-weight:var(--weight-semibold);
+  text-decoration:none;
+  background:var(--brand-primary);
+  color:var(--ink-on-rose);
+  border:var(--border-w) solid transparent;
+  border-radius:var(--radius-pill);
+  padding:14px 28px;
+  cursor:pointer;
+  transition:var(--transition-base);
+}
+.page-btn--full{display:block;width:100%}
+.page-btn:hover:not(:disabled){background:var(--brand-primary-hover);transform:var(--hover-lift)}
+.page-btn:active:not(:disabled){transform:var(--press-scale)}
+.page-btn:disabled{background:var(--state-disabled-bg);color:var(--state-disabled-fg);cursor:not-allowed}
+.page-btn:focus-visible{box-shadow:var(--focus-ring);outline:none}
+
+.page-fine{
+  font-size:var(--text-caption);
+  color:var(--text-muted);
+  margin:var(--space-5) 0 0;
+}
+.page-fine a{color:var(--brand-on-dark)}

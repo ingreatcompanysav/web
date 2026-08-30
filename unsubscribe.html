@@ -17,43 +17,10 @@
 
   <link rel="stylesheet" href="/assets/css/tokens.css">
   <link rel="stylesheet" href="/assets/css/base.css">
+  <link rel="stylesheet" href="/assets/css/page.css">
   <style>
-    /* A single narrow card. Shares the site's tokens, none of its layout. */
-    body{
-      min-height:100dvh;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      background:var(--wash-golden);
-      background-attachment:fixed;
-      padding:var(--gutter);
-    }
-    .u-card{
-      width:100%;
-      max-width:480px;
-      background:var(--surface-card);
-      border:var(--border-w) solid var(--border-hairline);
-      border-radius:var(--radius-lg);
-      box-shadow:var(--shadow-lg);
-      padding:clamp(28px,5vw,44px);
-      text-align:center;
-      animation:igcRise var(--dur-slow) var(--ease-soft) both;
-    }
-    .u-logo{width:112px;height:auto;margin:0 auto var(--space-6)}
-    .u-title{
-      font-family:var(--font-display);
-      font-size:var(--text-display-s);
-      font-weight:var(--weight-medium);
-      color:var(--text-strong);
-      margin:0 0 var(--space-3);
-    }
-    .u-lead{
-      font-size:var(--text-body-m);
-      line-height:var(--leading-body);
-      color:var(--text-muted);
-      margin:0 0 var(--space-6);
-    }
+    /* Only the form — the card, title, lead, button and fine print are the
+       shared shape in page.css. */
     .u-label{
       display:block;
       text-align:left;
@@ -75,27 +42,6 @@
     .u-input::placeholder{color:var(--text-subtle)}
     .u-input:focus-visible{border-color:var(--border-focus);box-shadow:var(--focus-ring);outline:none}
     .u-ts{display:flex;justify-content:center;margin-bottom:var(--space-4);min-height:0}
-    .u-btn{
-      width:100%;
-      font-size:var(--text-body-m);
-      font-weight:var(--weight-semibold);
-      background:var(--brand-primary);
-      color:var(--ink-on-rose);
-      border:var(--border-w) solid transparent;
-      border-radius:var(--radius-pill);
-      padding:14px 28px;
-      cursor:pointer;
-      transition:var(--transition-base);
-    }
-    .u-btn:hover:not(:disabled){background:var(--brand-primary-hover);transform:var(--hover-lift)}
-    .u-btn:active:not(:disabled){transform:var(--press-scale)}
-    .u-btn:disabled{background:var(--state-disabled-bg);color:var(--state-disabled-fg);cursor:not-allowed}
-    .u-btn:focus-visible{box-shadow:var(--focus-ring);outline:none}
-    .u-fine{
-      font-size:var(--text-caption);
-      color:var(--text-muted);
-      margin:var(--space-5) 0 0;
-    }
     .u-err{
       font-size:var(--text-body-s);
       color:var(--brand-on-dark);
@@ -107,10 +53,10 @@
   </style>
 </head>
 <body>
-  <main class="u-card">
-    <img class="u-logo" src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company">
+  <main class="page-card">
+    <img class="page-logo" src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company">
     <div id="view">
-      <p class="u-lead" aria-live="polite">Loading…</p>
+      <p class="page-lead" aria-live="polite">Loading…</p>
     </div>
   </main>
   <script type="module" src="/assets/js/unsubscribe.js?v=2"></script>

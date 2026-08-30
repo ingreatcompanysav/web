@@ -19,75 +19,15 @@
 
   <link rel="stylesheet" href="/assets/css/tokens.css">
   <link rel="stylesheet" href="/assets/css/base.css">
-  <style>
-    /* Same single-card shape as unsubscribe.html: the site's tokens, none of
-       its layout, and no JS — a 404 should render even when things are broken. */
-    body{
-      min-height:100dvh;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      background:var(--wash-golden);
-      background-attachment:fixed;
-      padding:var(--gutter);
-    }
-    .e-card{
-      width:100%;
-      max-width:480px;
-      background:var(--surface-card);
-      border:var(--border-w) solid var(--border-hairline);
-      border-radius:var(--radius-lg);
-      box-shadow:var(--shadow-lg);
-      padding:clamp(28px,5vw,44px);
-      text-align:center;
-      animation:igcRise var(--dur-slow) var(--ease-soft) both;
-    }
-    .e-logo{width:112px;height:auto;margin:0 auto var(--space-6)}
-    .e-title{
-      font-family:var(--font-display);
-      font-size:var(--text-display-s);
-      font-weight:var(--weight-medium);
-      color:var(--text-strong);
-      margin:0 0 var(--space-3);
-    }
-    .e-lead{
-      font-size:var(--text-body-m);
-      line-height:var(--leading-body);
-      color:var(--text-muted);
-      margin:0 0 var(--space-6);
-    }
-    .e-btn{
-      display:inline-block;
-      font-size:var(--text-body-m);
-      font-weight:var(--weight-semibold);
-      text-decoration:none;
-      background:var(--brand-primary);
-      color:var(--ink-on-rose);
-      border:var(--border-w) solid transparent;
-      border-radius:var(--radius-pill);
-      padding:14px 28px;
-      cursor:pointer;
-      transition:var(--transition-base);
-    }
-    .e-btn:hover{background:var(--brand-primary-hover);transform:var(--hover-lift)}
-    .e-btn:active{transform:var(--press-scale)}
-    .e-btn:focus-visible{box-shadow:var(--focus-ring);outline:none}
-    .e-fine{
-      font-size:var(--text-caption);
-      color:var(--text-muted);
-      margin:var(--space-5) 0 0;
-    }
-    .e-fine a{color:var(--brand-on-dark)}
-  </style>
+  <link rel="stylesheet" href="/assets/css/page.css">
 </head>
 <body>
-  <main class="e-card">
-    <img class="e-logo" src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company">
-    <h1 class="e-title">This page isn't here</h1>
-    <p class="e-lead">The link might be old, or we may have moved things around. Either way, the gatherings are still on.</p>
-    <a class="e-btn" href="/#gatherings">See what's coming up</a>
-    <p class="e-fine">Or head back to the <a href="/">homepage</a>.</p>
+  <main class="page-card">
+    <img class="page-logo" src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company">
+    <h1 class="page-title">This page isn't here</h1>
+    <p class="page-lead">The link might be old, or we may have moved things around. Either way, the gatherings are still on.</p>
+    <a class="page-btn" href="/#gatherings">See what's coming up</a>
+    <p class="page-fine">Or head back to the <a href="/">homepage</a>.</p>
   </main>
 </body>
 </html>

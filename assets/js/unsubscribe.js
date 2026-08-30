@@ -12,9 +12,9 @@ const view = document.getElementById('view');
 const token = new URLSearchParams(location.search).get('t') || '';
 
 const done = (msg) => {
-  view.innerHTML = `<h1 class="u-title">You're unsubscribed</h1>
-    <p class="u-lead">${esc(msg)}</p>
-    <p class="u-fine">Changed your mind? You can sign up again any time from
+  view.innerHTML = `<h1 class="page-title">You're unsubscribed</h1>
+    <p class="page-lead">${esc(msg)}</p>
+    <p class="page-fine">Changed your mind? You can sign up again any time from
       <a href="/">the website</a>.</p>`;
 };
 
@@ -51,11 +51,11 @@ async function tokenMode() {
 
   const label = who && who.emailMasked ? who.emailMasked : 'this address';
   view.innerHTML = `
-    <h1 class="u-title">Unsubscribe?</h1>
-    <p class="u-lead">We'll stop sending the newsletter to <b>${esc(label)}</b>.
+    <h1 class="page-title">Unsubscribe?</h1>
+    <p class="page-lead">We'll stop sending the newsletter to <b>${esc(label)}</b>.
       You'll still be welcome at every gathering.</p>
-    <button type="button" class="u-btn" id="go">Yes, unsubscribe me</button>
-    <p class="u-fine"><a href="/">No thanks, take me back</a></p>`;
+    <button type="button" class="page-btn page-btn--full" id="go">Yes, unsubscribe me</button>
+    <p class="page-fine"><a href="/">No thanks, take me back</a></p>`;
 
   document.getElementById('go').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -73,17 +73,17 @@ async function tokenMode() {
 /* ---- email mode ---------------------------------------------------------- */
 function emailMode() {
   view.innerHTML = `
-    <h1 class="u-title">Unsubscribe</h1>
-    <p class="u-lead">Enter the email address you signed up with and we'll take
+    <h1 class="page-title">Unsubscribe</h1>
+    <p class="page-lead">Enter the email address you signed up with and we'll take
       it off the newsletter list.</p>
     <form id="f" novalidate>
       <label class="u-label" for="email">Email address</label>
       <input class="u-input" type="email" id="email" name="email" required
              autocomplete="email" placeholder="you@example.com">
       <div id="ts" class="u-ts"></div>
-      <button type="submit" class="u-btn" id="go">Unsubscribe me</button>
+      <button type="submit" class="page-btn page-btn--full" id="go">Unsubscribe me</button>
     </form>
-    <p class="u-fine"><a href="/">Back to the website</a></p>`;
+    <p class="page-fine"><a href="/">Back to the website</a></p>`;
 
   let ts = null;
   mountTurnstile(document.getElementById('ts'), { theme: 'dark' }).then((h) => { ts = h; });
