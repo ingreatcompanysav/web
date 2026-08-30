@@ -1358,8 +1358,13 @@ async function resync(type, statusId, reload){
     }
     await reload();
     if(failed){
-      const why = (last && last.errors && last.errors[0]) ? ` (${last.errors[0].reason})` : "";
-      setStatus(statusId, `Re-synced ${synced}, ${failed} still failing${why}.`, "warn");
+      // Show what Google actually said, not just the status code — the body is
+      // where "deploy as Anyone" style problems announce themselves.
+      const e = last && last.errors && last.errors[0];
+      const detail = e ? (e.error||"").replace(/\s+/g," ").trim().slice(0,90) : "";
+      const why = e ? ` (${e.reason}${detail?": "+detail:""})` : "";
+      const where = last && last.endpoint ? ` — posting to ${last.endpoint}` : "";
+      setStatus(statusId, `Re-synced ${synced}, ${failed} still failing${why}${where}`, "warn");
     } else {
       setStatus(statusId, synced ? `Re-synced ${synced} row${synced!==1?"s":""} ✓` : "Nothing to re-sync — everything is already in the Sheet.", "ok");
     }

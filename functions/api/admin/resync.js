@@ -30,11 +30,22 @@ export async function onRequestPost({ request, env }) {
   const url = type === 'rsvps' ? env.APPS_SCRIPT_URL : env.APPS_SCRIPT_NEWSLETTER_URL;
   if (!url) return json({ ok: false, error: 'no_sheet_configured', type }, 400);
 
+  // A safe fingerprint of the configured endpoint. The full URL is a capability
+  // — anyone holding it can append rows — so we never return it; host plus the
+  // last path segment is enough to catch the two usual misconfigurations: a
+  // /dev URL instead of /exec, or a URL that isn't Apps Script at all.
+  let endpoint = 'unparseable';
+  try {
+    const u = new URL(url);
+    const tail = u.pathname.split('/').filter(Boolean).pop() || '(no path)';
+    endpoint = `${u.host}/…/${tail}`;
+  } catch { /* keep 'unparseable' */ }
+
   const total = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM ${type} WHERE synced_sheet = 0`
   ).first();
   const pending = total ? total.n : 0;
-  if (!pending) return json({ ok: true, attempted: 0, synced: 0, failed: 0, remaining: 0 });
+  if (!pending) return json({ ok: true, attempted: 0, synced: 0, failed: 0, remaining: 0, endpoint });
 
   const { results } = await env.DB.prepare(
     `SELECT * FROM ${type} WHERE synced_sheet = 0 ORDER BY id ASC LIMIT ?`
@@ -80,6 +91,7 @@ export async function onRequestPost({ request, env }) {
   return json({
     ok: true,
     type,
+    endpoint,
     attempted,
     synced,
     failed: attempted - synced,
