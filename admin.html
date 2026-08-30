@@ -1365,7 +1365,8 @@ async function resync(type, statusId, reload){
       const e = last && last.errors && last.errors[0];
       const detail = e ? (e.error||"").replace(/\s+/g," ").trim().slice(0,90) : "";
       const why = e ? ` (${e.reason}${detail?": "+detail:""})` : "";
-      const where = last && last.endpoint ? ` — posting to ${last.endpoint}` : "";
+      const dep = last && last.deploymentId ? ` · deployment ${last.deploymentId}` : "";
+      const where = last && last.endpoint ? ` — posting to ${last.endpoint}${dep}` : "";
       setStatus(statusId, `Re-synced ${synced}, ${failed} still failing${why}${where}`, "warn");
     } else {
       setStatus(statusId, synced ? `Re-synced ${synced} row${synced!==1?"s":""} ✓` : "Nothing to re-sync — everything is already in the Sheet.", "ok");

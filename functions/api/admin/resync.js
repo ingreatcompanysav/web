@@ -12,7 +12,7 @@
 // time out mid-run. We do BATCH at a time and report what is left, so the admin
 // can press the button again rather than watch a request die.
 import { json } from '../../_shared/db.js';
-import { postToAppsScript } from '../../_shared/integrations.js';
+import { postToAppsScript, fingerprint } from '../../_shared/integrations.js';
 
 const BATCH = 25;
 
@@ -30,27 +30,14 @@ export async function onRequestPost({ request, env }) {
   const url = type === 'rsvps' ? env.APPS_SCRIPT_URL : env.APPS_SCRIPT_NEWSLETTER_URL;
   if (!url) return json({ ok: false, error: 'no_sheet_configured', type }, 400);
 
-  // A safe fingerprint of the configured endpoint. The full URL is a capability
-  // — anyone holding it can append rows — so we never return it; host plus the
-  // last path segment is enough to catch the two usual misconfigurations: a
-  // /dev URL instead of /exec, or a URL that isn't Apps Script at all.
-  let endpoint = 'unparseable';
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split('/').filter(Boolean);
-    const tail = parts[parts.length - 1] || '(no path)';
-    const id = parts.length >= 3 ? parts[parts.length - 2] : '';
-    // The ID fragment is what lets you tell WHICH deployment is configured —
-    // fixing the access setting on a different one is an easy mistake to make.
-    const frag = id.length > 12 ? ` (deployment ${id.slice(0, 6)}…${id.slice(-4)})` : '';
-    endpoint = `${u.host}/…/${tail}${frag}`;
-  } catch { /* keep 'unparseable' */ }
+  // Reported back so the admin can see WHICH deployment it is talking to.
+  const { endpoint, deploymentId } = fingerprint(url);
 
   const total = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM ${type} WHERE synced_sheet = 0`
   ).first();
   const pending = total ? total.n : 0;
-  if (!pending) return json({ ok: true, attempted: 0, synced: 0, failed: 0, remaining: 0, endpoint });
+  if (!pending) return json({ ok: true, attempted: 0, synced: 0, failed: 0, remaining: 0, endpoint, deploymentId });
 
   const { results } = await env.DB.prepare(
     `SELECT * FROM ${type} WHERE synced_sheet = 0 ORDER BY id ASC LIMIT ?`
@@ -97,6 +84,7 @@ export async function onRequestPost({ request, env }) {
     ok: true,
     type,
     endpoint,
+    deploymentId,
     attempted,
     synced,
     failed: attempted - synced,

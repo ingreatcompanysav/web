@@ -13,22 +13,7 @@
 // This does NOT prove the shared token matches — a wrong token fails the POST
 // with script_rejected, which is a different (and clearer) error.
 import { json } from '../../_shared/db.js';
-
-// Host + deployment-ID fragment. Never the whole URL: it is a capability, and
-// anyone holding it can append rows. The fragment is short enough to be useless
-// on its own but long enough to match against the Manage Deployments list.
-function fingerprint(url) {
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split('/').filter(Boolean);
-    const tail = parts[parts.length - 1] || '(no path)';
-    const id = parts.length >= 3 ? parts[parts.length - 2] : '';
-    const frag = id.length > 12 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id;
-    return { endpoint: `${u.host}/…/${tail}`, deploymentId: frag };
-  } catch {
-    return { endpoint: 'unparseable', deploymentId: '' };
-  }
-}
+import { fingerprint } from '../../_shared/integrations.js';
 
 export async function onRequestGet({ request, env }) {
   const type = new URL(request.url).searchParams.get('type') === 'subscribers'

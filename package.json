@@ -1,6 +1,7 @@
 {
   "name": "igc-web",
   "private": true,
+  "type": "module",
   "description": "In Great Company — static site on Cloudflare Pages with D1-backed Functions. No build step: the browser gets the files in this repo as-is. This manifest exists only to pin the wrangler CLI so local dev and database commands behave the same on every machine.",
   "scripts": {
     "dev": "wrangler pages dev .",

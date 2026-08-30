@@ -1,10 +1,8 @@
 // /api/admin/photos — GET (list all, incl. inactive) + POST (upload).
 // POST is multipart/form-data: file, slot, alt, width, height. The admin page
-// resizes the image in the browser before upload, so the server just stores bytes.
+// resizes the image in the browser before upload, so the server just stores it.
 import { json, photoToAdmin, PHOTO_SLOTS } from '../../_shared/db.js';
-
-const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif' };
-const MAX_BYTES = 8 * 1024 * 1024; // 8 MB ceiling; the admin resizes well below this
+import { readImage, putImage } from '../../_shared/upload.js';
 
 export async function onRequestGet({ env }) {
   const { results } = await env.DB.prepare(
@@ -14,25 +12,16 @@ export async function onRequestGet({ env }) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const form = await request.formData().catch(() => null);
-  if (!form) return json({ ok: false, error: 'expected_multipart' }, 400);
+  const img = await readImage(request);
+  if (img.error) return img.error;
 
-  const file = form.get('file');
-  if (!file || typeof file === 'string') return json({ ok: false, error: 'file_required' }, 400);
-
-  const ct = file.type || 'image/jpeg';
-  if (!EXT[ct]) return json({ ok: false, error: 'unsupported_type' }, 415);
-
-  const buf = await file.arrayBuffer();
-  if (buf.byteLength > MAX_BYTES) return json({ ok: false, error: 'too_large' }, 413);
-
+  const { form } = img;
   const slot = PHOTO_SLOTS.includes(form.get('slot')) ? form.get('slot') : 'gallery';
   const alt = String(form.get('alt') || '').slice(0, 300);
   const width = parseInt(form.get('width'), 10) || 0;
   const height = parseInt(form.get('height'), 10) || 0;
 
-  const key = `photos/${slot}/${crypto.randomUUID()}.${EXT[ct]}`;
-  await env.PHOTOS.put(key, buf, { httpMetadata: { contentType: ct } });
+  const key = await putImage(env, `photos/${slot}`, img);
 
   const next = await env.DB.prepare(
     'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM photos WHERE slot = ?'
@@ -42,7 +31,7 @@ export async function onRequestPost({ request, env }) {
     `INSERT INTO photos
        (slot, r2_key, alt, content_type, width, height, bytes, active, sort_order, created_at)
      VALUES (?,?,?,?,?,?,?,1,?, datetime('now'))`
-  ).bind(slot, key, alt, ct, width, height, buf.byteLength, next.n).run();
+  ).bind(slot, key, alt, img.contentType, width, height, img.buf.byteLength, next.n).run();
 
   return json({ ok: true, id: res.meta.last_row_id, key, url: '/img/' + key }, 201);
 }
