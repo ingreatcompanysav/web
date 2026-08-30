@@ -97,6 +97,38 @@ export const quoteFromBody = (b = {}) => ({
   sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
 });
 
+// --- links -------------------------------------------------------------------
+// The /links page (Linktree-style). `icon` is a key into the inline SVG set in
+// assets/js/links.js; unknown keys fall back to a generic link mark there.
+export const LINK_ICONS = ['link', 'instagram', 'facebook', 'email', 'calendar', 'ticket', 'heart'];
+export const LINK_TONES = ['rose', 'cyan', 'gold', 'cream'];
+
+export const linkToPublic = (r) => ({
+  id: r.id,
+  label: r.label,
+  url: r.url,
+  subtitle: r.subtitle || '',
+  icon: r.icon || '',
+  tone: r.tone || 'rose',
+});
+
+export const linkToAdmin = (r) => ({
+  ...linkToPublic(r),
+  active: r.active,
+  sortOrder: r.sort_order,
+  updatedAt: r.updated_at,
+});
+
+export const linkFromBody = (b = {}) => ({
+  label: String(b.label || '').trim(),
+  url: String(b.url || '').trim(),
+  subtitle: b.subtitle ?? '',
+  icon: LINK_ICONS.includes(b.icon) ? b.icon : '',
+  tone: LINK_TONES.includes(b.tone) ? b.tone : 'rose',
+  active: b.active === 0 || b.active === false ? 0 : 1,
+  sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
+});
+
 // --- photos -----------------------------------------------------------------
 export const PHOTO_SLOTS = ['hero', 'gallery', 'join'];
 
@@ -122,10 +154,41 @@ export const photoToAdmin = (r) => ({
   createdAt: r.created_at,
 });
 
+// --- subscribers --------------------------------------------------------------
+// Newsletter list. The token is the unsubscribe credential, so it is never
+// exposed by a public endpoint — only the admin shape and the Sheet mirror
+// carry it (the Sheet needs it to build each person's unsubscribe link).
+export const subscriberToAdmin = (r) => ({
+  id: r.id,
+  firstName: r.first_name,
+  lastName: r.last_name || '',
+  email: r.email,
+  status: r.status || 'subscribed',
+  source: r.source || '',
+  syncedSheet: r.synced_sheet,
+  createdAt: r.created_at,
+  unsubscribedAt: r.unsubscribed_at || '',
+});
+
+// Lowercased + trimmed so "A@B.com" and "a@b.com " are one subscriber.
+export const normalizeEmail = (v) => String(v || '').trim().toLowerCase();
+
+// Deliberately permissive — just enough to catch typos, not to police the RFC.
+export const looksLikeEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+
+// 128 bits of randomness, hex. Unguessable, so a one-click unsubscribe link
+// needs no login and can't be brute-forced across the list.
+export const newToken = () =>
+  [...crypto.getRandomValues(new Uint8Array(16))]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
 // --- rsvps ------------------------------------------------------------------
 export const rsvpToAdmin = (r) => ({
   id: r.id,
   eventId: r.event_id,
+  firstName: r.first_name || '',
+  lastName: r.last_name || '',
   name: r.name,
   email: r.email,
   guests: r.guests,
@@ -133,3 +196,14 @@ export const rsvpToAdmin = (r) => ({
   syncedSheet: r.synced_sheet,
   createdAt: r.created_at,
 });
+
+// Splits a single free-text name into first/last on the FIRST space, so
+// "Mary Anne Smith" becomes ("Mary", "Anne Smith"). Used for older clients that
+// still post a combined `name`.
+export const splitName = (full) => {
+  const t = String(full || '').trim();
+  const i = t.indexOf(' ');
+  return i === -1
+    ? { firstName: t, lastName: '' }
+    : { firstName: t.slice(0, i), lastName: t.slice(i + 1).trim() };
+};

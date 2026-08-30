@@ -51,6 +51,10 @@ CREATE TABLE IF NOT EXISTS quotes (
 CREATE TABLE IF NOT EXISTS rsvps (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   event_id      TEXT    DEFAULT '',
+  -- first_name/last_name are what the form collects (matching the newsletter);
+  -- `name` is kept as the combined "first last" the Sheet and CSV already use.
+  first_name    TEXT    DEFAULT '',
+  last_name     TEXT    DEFAULT '',
   name          TEXT NOT NULL,
   email         TEXT    DEFAULT '',
   guests        INTEGER DEFAULT 1,
@@ -79,3 +83,40 @@ CREATE TABLE IF NOT EXISTS photos (
   created_at    TEXT    DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_photos_slot ON photos(slot, sort_order);
+
+-- The Linktree-style /links page. Ordered list of outbound links the client
+-- edits from the admin page's Links tab; the page shows the active ones.
+--   * icon is a key into the small inline SVG set in assets/js/links.js
+--     (instagram | facebook | email | calendar | ticket | heart | link).
+--   * tone picks the accent colour: rose | cyan | gold | cream.
+CREATE TABLE IF NOT EXISTS links (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  label       TEXT NOT NULL,
+  url         TEXT NOT NULL,
+  subtitle    TEXT    DEFAULT '',
+  icon        TEXT    DEFAULT '',
+  tone        TEXT    DEFAULT 'rose',
+  active      INTEGER DEFAULT 1,
+  sort_order  INTEGER DEFAULT 0,
+  updated_at  TEXT    DEFAULT (datetime('now'))
+);
+
+-- Newsletter signups. See db/migration-subscribers.sql for the full notes:
+-- email is unique and lowercased, `token` powers the one-click unsubscribe link,
+-- and unsubscribing flips `status` rather than deleting the row (a suppression
+-- record, so a later import can't silently re-add someone).
+CREATE TABLE IF NOT EXISTS subscribers (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name      TEXT NOT NULL,
+  last_name       TEXT    DEFAULT '',
+  email           TEXT NOT NULL,
+  token           TEXT NOT NULL,
+  status          TEXT    DEFAULT 'subscribed',
+  source          TEXT    DEFAULT '',
+  synced_sheet    INTEGER DEFAULT 0,
+  created_at      TEXT    DEFAULT (datetime('now')),
+  updated_at      TEXT    DEFAULT (datetime('now')),
+  unsubscribed_at TEXT    DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_token ON subscribers(token);
