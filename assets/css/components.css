@@ -355,7 +355,28 @@
   .ticket{position:static;top:auto}
   .event-card--row,.skel-card--row{flex-direction:column}
   .event-card--row .event-card__media,.skel-card--row .skel-card__media{aspect-ratio:3/2;flex:0 0 auto}
-  .event-card--row .event-card__body{padding:4px 6px 8px}
+  /* Stacked, the body drives the card's height, so content stacks from the top
+     and the slack from the equal-height rule below collects at the bottom.
+     (Wide screens keep space-between, where the 220px media sets the height.) */
+  .event-card--row .event-card__body{padding:4px 6px 8px;justify-content:flex-start}
+
+  /* Once the cards stack, each one sizes to its own content — so a gathering
+     with no category chip, or no blurb, ends up visibly shorter than the one
+     above it, and by however much the data happens to differ. Worse, the chip
+     cost nothing when the date fitted beside it and a whole extra line when it
+     did not, so the gap moved with the length of a venue name.
+
+     Sizing every row to the tallest card settles it: the amount is the same
+     for every card, which is what the three-column grid already does on wider
+     screens. Only the calendar lists — [data-calendar] — are equalised;
+     testimonials vary in length on purpose and would just gain dead space. */
+  [data-calendar] .grid-3{grid-auto-rows:1fr}
+  .gathering-list{display:grid;grid-auto-rows:1fr}
+
+  /* And a bound, so one long blurb cannot set the height for the whole list. */
+  .event-card__blurb{
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;
+  }
   .skel-card--row .skel-card__body{padding:4px 6px 8px;justify-content:flex-start}
   .empty-state{padding:var(--space-8) var(--space-5)}
   .footer__bar{flex-direction:column;gap:var(--space-2)}
