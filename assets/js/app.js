@@ -3,11 +3,10 @@
 import { loadEvents, loadVoices, loadPhotos } from './api.js';
 import { AVATAR_BY_NAME, LINKS, HERO, NAV } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
+import { esc } from './util.js';
 import { mountSignup } from './signup.js';
 
 /* ----------------------------------------------------------------- helpers */
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
-  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const scriptWord = (word, xl) => `<span class="igc-script${xl ? ' igc-script--xl' : ''}">${esc(word)}</span>`;
 

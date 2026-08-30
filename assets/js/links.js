@@ -6,9 +6,8 @@
 // (previewing the files without the Pages Functions runtime, or a cold DB).
 import { LINKS } from './data.js';
 import { mountSignup } from './signup.js';
+import { esc } from './util.js';
 
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
-  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* Inline SVG so each mark takes the surrounding text colour — no icon font,
    no extra request. Keys match the `icon` column; see db/schema.sql. */

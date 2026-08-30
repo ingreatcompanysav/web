@@ -22,3 +22,19 @@ INSERT INTO quotes (name, detail, tone, body, active, sort_order) VALUES
    'This group has been such a blessing since I moved; They’ve created a welcoming, supportive community with fun events and a safe space that helped me get out, explore the city, and build friendships when I didn’t know anyone.', 1, 1),
   ('Jo', 'here twelve years', 'cream',
    'Twelve years in Savannah and I found the hidden gems with these women, not before them.', 1, 2);
+
+-- Links (the /links page) ----------------------------------------------------
+-- Only seeds an EMPTY table, unlike the events/quotes blocks above: these are
+-- edited from the admin's Links tab, and re-running the seed must not wipe the
+-- client's own list. (This block used to live in db/migration-links.sql.)
+INSERT INTO links (label, url, subtitle, icon, tone, active, sort_order)
+SELECT * FROM (
+  SELECT 'Follow us on Instagram' AS label, 'https://www.instagram.com/ingreatcompanysav' AS url,
+         '@ingreatcompanysav' AS subtitle, 'instagram' AS icon, 'rose' AS tone, 1 AS active, 0 AS sort_order
+  UNION ALL SELECT 'Join the Facebook group', 'https://www.facebook.com/groups/ingreatcompanysav',
+         'Where the day-to-day chatter happens', 'facebook', 'cyan', 1, 1
+  UNION ALL SELECT 'See upcoming gatherings', 'https://ingreatcompanysav.com/#gatherings',
+         'Coffee, dinners, walks — all of it', 'calendar', 'gold', 1, 2
+  UNION ALL SELECT 'Email us', 'mailto:contact@ingreatcompanysav.com',
+         'contact@ingreatcompanysav.com', 'email', 'cream', 1, 3
+) WHERE NOT EXISTS (SELECT 1 FROM links);

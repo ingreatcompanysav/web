@@ -5,23 +5,11 @@
 //
 // Nothing opts out on page load. Scanners and prefetchers follow links inside
 // email, so the opt-out only happens on an explicit POST from the button.
-const TURNSTILE_SITEKEY = '0x4AAAAAAEOiex7_1tN6hBFC';
-
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
-  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { mountTurnstile } from './turnstile.js';
+import { esc } from './util.js';
 
 const view = document.getElementById('view');
 const token = new URLSearchParams(location.search).get('t') || '';
-
-function ensureTurnstile(cb) {
-  if (window.turnstile) return cb(true);
-  const s = document.createElement('script');
-  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-  s.async = true; s.defer = true;
-  s.onload = () => cb(true);
-  s.onerror = () => cb(false);
-  document.head.appendChild(s);
-}
 
 const done = (msg) => {
   view.innerHTML = `<h1 class="u-title">You're unsubscribed</h1>
@@ -97,14 +85,8 @@ function emailMode() {
     </form>
     <p class="u-fine"><a href="/">Back to the website</a></p>`;
 
-  let widget = null;
-  ensureTurnstile((ok) => {
-    if (!ok || !window.turnstile) return;
-    widget = window.turnstile.render(document.getElementById('ts'), {
-      sitekey: TURNSTILE_SITEKEY,
-      theme: 'dark',
-    });
-  });
+  let ts = null;
+  mountTurnstile(document.getElementById('ts'), { theme: 'dark' }).then((h) => { ts = h; });
 
   document.getElementById('f').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -112,20 +94,15 @@ function emailMode() {
     const btn = document.getElementById('go');
     if (!email) return failed('Please enter your email address.');
 
-    let tsToken = '';
-    if (window.turnstile && widget != null) {
-      try { tsToken = window.turnstile.getResponse(widget) || ''; } catch { /* not ready */ }
-    }
-
     btn.disabled = true; btn.textContent = 'Unsubscribing…';
     try {
-      await post({ email, turnstileToken: tsToken });
+      await post({ email, turnstileToken: ts ? ts.token() : '' });
       // Deliberately the same message whether or not the address was on the
       // list — otherwise this page would reveal who is subscribed.
       done("If that address was on our list, it's been removed.");
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Unsubscribe me';
-      if (window.turnstile && widget != null) { try { window.turnstile.reset(widget); } catch {} }
+      if (ts) ts.reset();
       failed("That didn't go through: " + err.message);
     }
   });

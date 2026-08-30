@@ -275,3 +275,41 @@
   .event-card--row .event-card__body{padding:4px 6px 8px}
   .footer__bar{flex-direction:column;gap:var(--space-2)}
 }
+
+/* ---- RSVP modal ------------------------------------------------------------
+   A <dialog>: the browser supplies the modal semantics, focus trap, Escape and
+   backdrop. A cream card on the dark site, so it reads as a distinct surface. */
+.rsvp{
+  width:min(440px,100% - 40px);padding:0;border:0;border-radius:var(--radius-md);
+  background:var(--cream-100);color:var(--igc-teal);
+  box-shadow:0 20px 60px rgba(10,66,71,.35);font-family:var(--font-body);
+}
+.rsvp::backdrop{background:rgba(10,66,71,.55)}
+.rsvp__head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);padding:20px 22px 0}
+/* Explicit colour, not inherited: base.css paints headings --text-strong,
+   which the dark theme makes cream — invisible on this cream card. */
+.rsvp__title{font-family:var(--font-display);font-size:22px;font-weight:var(--weight-semibold);margin:0;color:var(--igc-teal)}
+.rsvp__sub{font-size:13px;opacity:.7;margin:2px 0 0}
+.rsvp__close{border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:inherit;padding:0}
+.rsvp__form{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) 22px 22px}
+.rsvp__row{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.rsvp__row .rsvp__field{flex:1 1 140px;min-width:0}
+.rsvp__field{display:flex;flex-direction:column;gap:5px}
+.rsvp__label{font-size:12px;font-weight:var(--weight-semibold);letter-spacing:.02em;text-transform:uppercase;color:rgba(10,66,71,.75)}
+.rsvp__optional{font-weight:var(--weight-regular);opacity:.6;text-transform:none;letter-spacing:0}
+.rsvp__input{
+  width:100%;font:inherit;font-size:15px;color:var(--igc-teal);background:#fff;
+  border:1px solid rgba(10,66,71,.18);border-radius:9px;padding:10px 11px;
+}
+.rsvp__input--area{resize:vertical}
+.rsvp__input:focus-visible{outline:none;box-shadow:var(--focus-ring);border-color:var(--border-focus)}
+/* Rose is the error colour, darkened to clear AA on the cream card. */
+.rsvp__msg{font-size:13px;min-height:18px;margin:0;color:var(--rose-700)}
+.rsvp__msg.is-ok{color:var(--cyan-800)}
+.rsvp__submit{
+  border:0;background:var(--igc-rose);color:var(--ink-on-rose);font:inherit;
+  font-weight:var(--weight-semibold);font-size:15px;padding:12px;border-radius:var(--radius-sm);cursor:pointer;
+}
+.rsvp__submit:disabled{opacity:.7;cursor:default}
+.rsvp__fine{font-size:11px;line-height:1.5;text-align:center;margin:0;opacity:.6}
+.rsvp__fine a{color:inherit}

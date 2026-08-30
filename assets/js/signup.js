@@ -3,26 +3,8 @@
 // mountSignup(el, { source }) replaces el's contents with the form and wires it
 // to POST /api/subscribe. `source` is recorded with the subscriber so the client
 // can see which form someone came through.
-const TURNSTILE_SITEKEY = '0x4AAAAAAEOiex7_1tN6hBFC';
-
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
-  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-function ensureTurnstile(cb) {
-  if (window.turnstile) return cb(true);
-  if (window.__igcTsLoading) {
-    const iv = setInterval(() => { if (window.turnstile) { clearInterval(iv); cb(true); } }, 100);
-    setTimeout(() => { clearInterval(iv); if (!window.turnstile) cb(false); }, 8000);
-    return;
-  }
-  window.__igcTsLoading = true;
-  const s = document.createElement('script');
-  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-  s.async = true; s.defer = true;
-  s.onload = () => cb(true);
-  s.onerror = () => cb(false);
-  document.head.appendChild(s);
-}
+import { mountTurnstile } from './turnstile.js';
+import { esc } from './util.js';
 
 let seq = 0; // unique ids, so two forms on one page keep their labels straight
 
@@ -60,11 +42,8 @@ export function mountSignup(el, { source = '' } = {}) {
   const btn = el.querySelector('.signup__btn');
   const tsBox = el.querySelector('.signup__ts');
 
-  let widget = null;
-  ensureTurnstile((ok) => {
-    if (!ok || !window.turnstile) return;
-    widget = window.turnstile.render(tsBox, { sitekey: TURNSTILE_SITEKEY, theme: 'dark' });
-  });
+  let ts = null;
+  mountTurnstile(tsBox, { theme: 'dark' }).then((handle) => { ts = handle; });
 
   const say = (text, kind) => {
     msg.textContent = text || '';
@@ -79,11 +58,6 @@ export function mountSignup(el, { source = '' } = {}) {
     if (!firstName) return say('Please tell us your first name.', 'err');
     if (!email) return say('Please enter your email address.', 'err');
 
-    let tsToken = '';
-    if (window.turnstile && widget != null) {
-      try { tsToken = window.turnstile.getResponse(widget) || ''; } catch { /* not ready */ }
-    }
-
     btn.disabled = true; btn.textContent = 'Signing you up…'; say('');
     try {
       const r = await fetch('/api/subscribe', {
@@ -94,7 +68,7 @@ export function mountSignup(el, { source = '' } = {}) {
           lastName: String(data.lastName || '').trim(),
           email,
           source,
-          turnstileToken: tsToken,
+          turnstileToken: ts ? ts.token() : '',
         }),
       });
       const out = await r.json().catch(() => null);
@@ -108,7 +82,7 @@ export function mountSignup(el, { source = '' } = {}) {
       </div>`;
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Sign me up';
-      if (window.turnstile && widget != null) { try { window.turnstile.reset(widget); } catch {} }
+      if (ts) ts.reset();
       say(friendly(err.message), 'err');
     }
   });
