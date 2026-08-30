@@ -1,9 +1,10 @@
 // POST /api/admin/reorder — batch-update sort order.
-// Body: { type: 'events' | 'quotes' | 'photos', order: [id, id, ...] }
-// The array position becomes the new sort_order. quotes/photos use numeric ids.
+// Body: { type: 'events' | 'quotes' | 'photos' | 'links', order: [id, id, ...] }
+// The array position becomes the new sort_order. Every table but events uses
+// numeric ids.
 import { json } from '../../_shared/db.js';
 
-const NUMERIC_ID = { quotes: true, photos: true };
+const NUMERIC_ID = { quotes: true, photos: true, links: true };
 
 export async function onRequestPost({ request, env }) {
   let body;
@@ -13,7 +14,7 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: false, error: 'invalid_json' }, 400);
   }
 
-  const table = ['events', 'quotes', 'photos'].includes(body.type) ? body.type : null;
+  const table = ['events', 'quotes', 'photos', 'links'].includes(body.type) ? body.type : null;
   if (!table) return json({ ok: false, error: 'bad_type' }, 400);
   if (!Array.isArray(body.order)) return json({ ok: false, error: 'order_required' }, 400);
 

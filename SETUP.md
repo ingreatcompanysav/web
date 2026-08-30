@@ -150,10 +150,41 @@ That is all the setup. The endpoints come with the next deploy:
 Until a photo is uploaded to a slot, the site shows its built-in image, so
 nothing breaks in the meantime.
 
+## 6c. Links page — the Linktree-style /links
+
+A public page at **`/links`** showing a one-tap list of buttons (Instagram, the
+Facebook group, gatherings, email), edited from the admin page's **Links** tab.
+It is the link to put in an Instagram bio.
+
+1. **Table.** Run the migration once per database. It creates the `links` table
+   and, only if the table is empty, seeds the four links already in the site
+   footer so the page isn't blank on day one:
+
+   ```bash
+   npx wrangler d1 execute igc --local  --file=./db/migration-links.sql
+   npx wrangler d1 execute igc --remote --file=./db/migration-links.sql
+   ```
+
+   (The same table is in `db/schema.sql` for fresh databases; the migration is
+   safe to re-run.)
+2. **Nothing else.** No bindings, no secrets — it uses the existing `DB`.
+
+The endpoints come with the deploy:
+
+- Public `GET /api/links` returns the active links in order.
+- Admin `GET/POST /api/admin/links` and `PUT/DELETE /api/admin/links/:id`, plus
+  `POST /api/admin/reorder` with `{"type":"links"}`, behind the same Access rule
+  as the rest of `/api/admin/*`.
+
+If the API is ever unreachable, the page falls back to the four links hard-coded
+in `assets/js/links.js`, so it never renders empty.
+
 ## 7. Final verification
 
 - `/admin.html` → Access login → you can add/edit gatherings and quotes and see
   them save; the RSVPs tab loads.
+- `/links` lists the links, and editing one in the admin's **Links** tab changes
+  the page after a save.
 - The public site shows gatherings and quotes from the database.
 - A test RSVP on a free gathering lands in the **RSVPs** admin tab **and** in the
   Google Sheet.

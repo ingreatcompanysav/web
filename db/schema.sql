@@ -79,3 +79,20 @@ CREATE TABLE IF NOT EXISTS photos (
   created_at    TEXT    DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_photos_slot ON photos(slot, sort_order);
+
+-- The Linktree-style /links page. Ordered list of outbound links the client
+-- edits from the admin page's Links tab; the page shows the active ones.
+--   * icon is a key into the small inline SVG set in assets/js/links.js
+--     (instagram | facebook | email | calendar | ticket | heart | link).
+--   * tone picks the accent colour: rose | cyan | gold | cream.
+CREATE TABLE IF NOT EXISTS links (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  label       TEXT NOT NULL,
+  url         TEXT NOT NULL,
+  subtitle    TEXT    DEFAULT '',
+  icon        TEXT    DEFAULT '',
+  tone        TEXT    DEFAULT 'rose',
+  active      INTEGER DEFAULT 1,
+  sort_order  INTEGER DEFAULT 0,
+  updated_at  TEXT    DEFAULT (datetime('now'))
+);

@@ -191,7 +191,7 @@
   <div class="wrap">
     <div>
       <h1>In Great Company — Admin</h1>
-      <div class="sub">Gatherings, quotes &amp; RSVPs</div>
+      <div class="sub">Gatherings, quotes, links &amp; RSVPs</div>
     </div>
     <div class="userbox">
       <span class="pill" id="whoami">Secured by Cloudflare Access</span>
@@ -205,6 +205,7 @@
     <button class="tab active" data-tab="events">Gatherings</button>
     <button class="tab" data-tab="quotes">Quotes</button>
     <button class="tab" data-tab="photos">Photos</button>
+    <button class="tab" data-tab="links">Links</button>
     <button class="tab" data-tab="rsvps">RSVPs</button>
   </div>
 </div>
@@ -304,6 +305,26 @@
     <div id="photosList"></div>
   </section>
 
+  <!-- ============ LINKS ============ -->
+  <section class="panel" id="panel-links">
+    <details class="help">
+      <summary>How this works</summary>
+      <ol>
+        <li>These are the buttons on the <b>links page</b> at <a href="/links" target="_blank" rel="noopener">ingreatcompanysav.com/links</a> — the one-tap list to put in an Instagram bio.</li>
+        <li>Reorder with the arrows; the top one shows first. Turn a link <b>off</b> to keep it here but hide it from the page.</li>
+        <li>Click <b>Save changes</b> to publish.</li>
+      </ol>
+    </details>
+    <div class="toolbar">
+      <button id="addLinkBtn">+ Add link</button>
+      <button class="ghost" id="collapseLinksBtn">Collapse all</button>
+      <button class="ghost" id="reloadLinksBtn">Reload from site</button>
+      <a class="mini" href="/links" target="_blank" rel="noopener" style="align-self:center">View the page ↗</a>
+      <span class="status grow" id="linksStatus"></span>
+    </div>
+    <div id="linksList"></div>
+  </section>
+
 </div>
 
 <div class="savebar" id="savebar">
@@ -351,7 +372,7 @@ const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 let activeTab = "events";
-const dirty = { events:false, quotes:false };
+const dirty = { events:false, quotes:false, links:false };
 function markDirty(tab){ dirty[tab]=true; updateSaveInfo(); }
 
 /* =========================================================================
@@ -1030,6 +1051,209 @@ async function saveQuotes(){
 }
 
 /* =========================================================================
+   LINKS  — the buttons on the public /links page
+   ========================================================================= */
+const LINK_TONES = ["rose","cyan","gold","cream"];
+// Keys must match the icon set in assets/js/links.js.
+const LINK_ICONS = [
+  ["", "None"],
+  ["link", "Generic link"],
+  ["instagram", "Instagram"],
+  ["facebook", "Facebook"],
+  ["email", "Email"],
+  ["calendar", "Calendar"],
+  ["ticket", "Ticket"],
+  ["heart", "Heart"],
+];
+let links = [];
+let originalLinkIds = new Set();
+const lOpen = {};
+const linksListEl = $("#linksList");
+
+function blankLink(){ return { id:null, label:"", url:"", subtitle:"", icon:"link", tone:"rose", active:1 }; }
+function validateLink(i){
+  const l = links[i]; const errs={};
+  if(!(l.label||"").trim()) errs.label = "Button text is required.";
+  const url = (l.url||"").trim();
+  if(!url) errs.url = "Link address is required.";
+  else if(!/^(https?:\/\/|mailto:|tel:|\/)/i.test(url)) errs.url = "Start with https:// (or mailto: for an email address).";
+  return { errs };
+}
+function renderLinks(){
+  if(links.length === 0){
+    linksListEl.innerHTML = '<div class="empty"><h2>No links yet</h2><p>Add the buttons that should appear on the links page.</p></div>';
+    updateSaveInfo(); return;
+  }
+  linksListEl.innerHTML = "";
+  links.forEach((_,i)=> linksListEl.insertAdjacentHTML("beforeend", linkCardHTML(i)));
+  links.forEach((_,i)=> applyLinkValidation(i));
+  updateSaveInfo();
+}
+function linkCardHTML(i){
+  const l = links[i];
+  const tone = LINK_TONES.includes(l.tone) ? l.tone : "rose";
+  const off = !l.active;
+  const badge = off ? '<span class="badge off">hidden</span>' : '';
+  return `
+  <div class="card tone-${tone}${lOpen[i]?" open":""}${off?" inactive":""}" data-lcard="${i}">
+    <div class="card-head" data-ltoggle="${i}">
+      <div>
+        <div class="title">${escapeHtml(l.label||"(no text)")} ${badge}</div>
+        <div class="meta">${escapeHtml(l.url||"")}</div>
+      </div>
+      <div class="controls">
+        <button class="icon ghost" data-lup="${i}" title="Move up" ${i===0?"disabled":""}>↑</button>
+        <button class="icon ghost" data-ldown="${i}" title="Move down" ${i===links.length-1?"disabled":""}>↓</button>
+        <button class="icon ghost" data-ldel="${i}" title="Delete">✕</button>
+        <span class="chev">▸</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>Button text <span class="req">*</span></label>
+        <input type="text" data-li="${i}" data-lk="label" value="${escapeAttr(l.label)}" placeholder="e.g. Follow us on Instagram">
+        <div class="field-msg" data-lmsg="label"></div>
+      </div>
+      <div class="field">
+        <label>Where it goes <span class="req">*</span></label>
+        <input type="text" data-li="${i}" data-lk="url" value="${escapeAttr(l.url)}" placeholder="https://…">
+        <div class="field-msg" data-lmsg="url"></div>
+      </div>
+      <div class="field">
+        <label>Small line underneath <span class="hint">optional</span></label>
+        <input type="text" data-li="${i}" data-lk="subtitle" value="${escapeAttr(l.subtitle)}" placeholder="e.g. @ingreatcompanysav">
+        <div class="field-msg"></div>
+      </div>
+      <div class="field">
+        <label>Icon</label>
+        <select data-li="${i}" data-lk="icon">
+          ${LINK_ICONS.map(([v,t])=>`<option value="${v}" ${v===(l.icon||"")?"selected":""}>${t}</option>`).join("")}
+        </select>
+        <div class="field-msg"></div>
+      </div>
+      <div class="field">
+        <label>Tone <span class="hint">accent colour</span></label>
+        <select data-li="${i}" data-lk="tone">
+          ${LINK_TONES.map(t=>`<option value="${t}" ${t===tone?"selected":""}>${t}</option>`).join("")}
+        </select>
+        <div class="field-msg"></div>
+      </div>
+      <div class="field full">
+        <div class="checkrow">
+          <input type="checkbox" id="lactive-${i}" data-li="${i}" data-lk="active" ${l.active?"checked":""}>
+          <label for="lactive-${i}">Show this link on the links page</label>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function applyLinkValidation(i){
+  const card = linksListEl.querySelector(`.card[data-lcard="${i}"]`);
+  if(!card) return;
+  const v = validateLink(i);
+  ["label","url"].forEach(k=>{
+    const msg = card.querySelector(`[data-lmsg="${k}"]`);
+    const input = card.querySelector(`[data-lk="${k}"]`);
+    if(!msg) return;
+    if(v.errs[k]){ msg.textContent=v.errs[k]; msg.className="field-msg err"; if(input) input.classList.add("err"); }
+    else { msg.textContent=""; msg.className="field-msg"; if(input) input.classList.remove("err"); }
+  });
+}
+function refreshLinkHeader(i){
+  const card = linksListEl.querySelector(`.card[data-lcard="${i}"]`);
+  if(!card) return;
+  const l = links[i];
+  const tone = LINK_TONES.includes(l.tone) ? l.tone : "rose";
+  const off = !l.active;
+  const badge = off ? '<span class="badge off">hidden</span>' : '';
+  card.querySelector(".card-head .title").innerHTML = escapeHtml(l.label||"(no text)")+" "+badge;
+  card.querySelector(".card-head .meta").textContent = l.url||"";
+  card.className = "card tone-"+tone+(lOpen[i]?" open":"")+(off?" inactive":"");
+}
+linksListEl.addEventListener("input", e=>{
+  const el = e.target; const i = el.dataset.li;
+  if(i === undefined) return;
+  const idx=+i, k=el.dataset.lk;
+  if(k==="active") return; // checkbox handled on change
+  links[idx][k] = el.value;
+  applyLinkValidation(idx); refreshLinkHeader(idx); markDirty("links");
+});
+linksListEl.addEventListener("change", e=>{
+  const el = e.target; const i = el.dataset.li;
+  if(i === undefined) return;
+  const idx=+i, k=el.dataset.lk;
+  if(k==="active"){ links[idx].active = el.checked?1:0; refreshLinkHeader(idx); markDirty("links"); }
+  else if(k==="tone" || k==="icon"){ links[idx][k] = el.value; refreshLinkHeader(idx); markDirty("links"); }
+});
+linksListEl.addEventListener("click", e=>{
+  const t = e.target;
+  if(t.dataset.lup !== undefined){ moveLink(+t.dataset.lup,-1); e.stopPropagation(); return; }
+  if(t.dataset.ldown !== undefined){ moveLink(+t.dataset.ldown, 1); e.stopPropagation(); return; }
+  if(t.dataset.ldel !== undefined){ delLink(+t.dataset.ldel); e.stopPropagation(); return; }
+  const head = t.closest("[data-ltoggle]");
+  if(head){ const idx=+head.dataset.ltoggle; lOpen[idx]=!lOpen[idx]; renderLinks(); }
+});
+function moveLink(i,dir){
+  const j=i+dir; if(j<0||j>=links.length) return;
+  [links[i],links[j]]=[links[j],links[i]];
+  const a=lOpen[i], b=lOpen[j]; lOpen[i]=b; lOpen[j]=a;
+  renderLinks(); markDirty("links");
+}
+function delLink(i){
+  if(!confirm(`Delete ${links[i].label||"this link"}? It's removed from the links page when you Save.`)) return;
+  links.splice(i,1);
+  const next={}; Object.keys(lOpen).forEach(k=>{k=+k; if(k===i)return; next[k>i?k-1:k]=lOpen[k];});
+  Object.keys(lOpen).forEach(k=>delete lOpen[k]); Object.assign(lOpen,next);
+  renderLinks(); markDirty("links");
+}
+$("#addLinkBtn").addEventListener("click", ()=>{
+  links.push(blankLink()); lOpen[links.length-1]=true; renderLinks(); markDirty("links");
+  window.scrollTo({top:document.body.scrollHeight, behavior:"smooth"});
+});
+$("#collapseLinksBtn").addEventListener("click", ()=>{
+  const anyOpen = Object.values(lOpen).some(Boolean);
+  Object.keys(lOpen).forEach(k=>delete lOpen[k]);
+  if(!anyOpen) links.forEach((_,i)=> lOpen[i]=true);
+  $("#collapseLinksBtn").textContent = anyOpen ? "Expand all" : "Collapse all";
+  renderLinks();
+});
+$("#reloadLinksBtn").addEventListener("click", loadLinks);
+
+async function loadLinks(){
+  try{
+    setStatus("linksStatus","Loading…");
+    const data = await api("GET","/api/admin/links");
+    links = data.map(o=>({ id:o.id, label:o.label||"", url:o.url||"", subtitle:o.subtitle||"", icon:o.icon||"", tone:o.tone||"rose", active:o.active?1:0 }));
+    originalLinkIds = new Set(links.map(l=>l.id).filter(x=>x!=null));
+    Object.keys(lOpen).forEach(k=>delete lOpen[k]);
+    dirty.links = false;
+    renderLinks();
+    setStatus("linksStatus", `${links.length} link${links.length!==1?"s":""} loaded.`, "ok");
+  }catch(err){ setStatus("linksStatus","Couldn’t load: "+err.message,"warn"); }
+}
+async function saveLinks(){
+  let errors=0; links.forEach((_,i)=> errors += Object.keys(validateLink(i).errs).length);
+  if(errors && !confirm(`${errors} field${errors>1?"s":""} still need fixing (shown in pink). Save anyway?`)) return;
+
+  const currentIds = links.map(l=>l.id).filter(x=>x!=null);
+  const toDelete = [...originalLinkIds].filter(id=> !currentIds.includes(id));
+  try{
+    setStatus("linksStatus","Saving…");
+    for(const id of toDelete){ await api("DELETE","/api/admin/links/"+id); }
+    // Create/update, capturing new ids so we can order them.
+    const orderedIds = [];
+    for(const l of links){
+      const payload = { label:l.label, url:l.url, subtitle:l.subtitle, icon:l.icon, tone:l.tone, active:l.active };
+      if(l.id!=null){ await api("PUT","/api/admin/links/"+l.id, payload); orderedIds.push(l.id); }
+      else { const r = await api("POST","/api/admin/links", payload); l.id = r.id; orderedIds.push(r.id); }
+    }
+    await api("POST","/api/admin/reorder", { type:"links", order: orderedIds });
+    await loadLinks();
+    setStatus("linksStatus","Saved ✓ The links page is updated.","ok");
+  }catch(err){ setStatus("linksStatus","Save failed: "+err.message,"warn"); }
+}
+
+/* =========================================================================
    RSVPS
    ========================================================================= */
 const rsvpsTableEl = $("#rsvpsTable");
@@ -1235,7 +1459,7 @@ function switchTab(tab){
   document.querySelectorAll(".tab").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
   document.querySelectorAll(".panel").forEach(p=> p.classList.remove("active"));
   $("#panel-"+tab).classList.add("active");
-  const showSave = (tab==="events"||tab==="quotes");
+  const showSave = (tab==="events"||tab==="quotes"||tab==="links");
   $("#savebar").style.display = showSave ? "" : "none";
   if(tab==="rsvps") loadRsvps();
   if(tab==="photos") loadPhotos();
@@ -1260,14 +1484,22 @@ function updateSaveInfo(){
     if(dirty.quotes) txt += " · unsaved changes";
     if(errs) txt += ` · <span class="warnc">⚠ ${errs} to fix</span>`;
     info.innerHTML = txt;
+  } else if(activeTab==="links"){
+    const n = links.length;
+    let errs=0; links.forEach((_,i)=> errs += Object.keys(validateLink(i).errs).length);
+    let txt = `<b>${n}</b> link${n!==1?"s":""}`;
+    if(dirty.links) txt += " · unsaved changes";
+    if(errs) txt += ` · <span class="warnc">⚠ ${errs} to fix</span>`;
+    info.innerHTML = txt;
   }
 }
-$("#saveBtn").addEventListener("click", ()=>{ if(activeTab==="events") saveEvents(); else if(activeTab==="quotes") saveQuotes(); });
+$("#saveBtn").addEventListener("click", ()=>{ if(activeTab==="events") saveEvents(); else if(activeTab==="quotes") saveQuotes(); else if(activeTab==="links") saveLinks(); });
 $("#discardBtn").addEventListener("click", ()=>{
   if(activeTab==="events"){ if(dirty.events && !confirm("Discard unsaved gathering changes?")) return; loadEvents(); }
   else if(activeTab==="quotes"){ if(dirty.quotes && !confirm("Discard unsaved quote changes?")) return; loadQuotes(); }
+  else if(activeTab==="links"){ if(dirty.links && !confirm("Discard unsaved link changes?")) return; loadLinks(); }
 });
-window.addEventListener("beforeunload", e=>{ if(dirty.events||dirty.quotes){ e.preventDefault(); e.returnValue=""; } });
+window.addEventListener("beforeunload", e=>{ if(dirty.events||dirty.quotes||dirty.links){ e.preventDefault(); e.returnValue=""; } });
 
 /* ---- Category datalist ---- */
 $("#catlist").innerHTML = ["Slow morning","Ticketed","Outdoors","Free","Social"].map(c=>`<option value="${c}">`).join("");
@@ -1282,6 +1514,7 @@ fetch("/cdn-cgi/access/get-identity")
 (async function boot(){
   await loadEvents();
   await loadQuotes();
+  await loadLinks();
 })();
 </script>
 </body>

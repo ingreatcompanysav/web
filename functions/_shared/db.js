@@ -97,6 +97,38 @@ export const quoteFromBody = (b = {}) => ({
   sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
 });
 
+// --- links -------------------------------------------------------------------
+// The /links page (Linktree-style). `icon` is a key into the inline SVG set in
+// assets/js/links.js; unknown keys fall back to a generic link mark there.
+export const LINK_ICONS = ['link', 'instagram', 'facebook', 'email', 'calendar', 'ticket', 'heart'];
+export const LINK_TONES = ['rose', 'cyan', 'gold', 'cream'];
+
+export const linkToPublic = (r) => ({
+  id: r.id,
+  label: r.label,
+  url: r.url,
+  subtitle: r.subtitle || '',
+  icon: r.icon || '',
+  tone: r.tone || 'rose',
+});
+
+export const linkToAdmin = (r) => ({
+  ...linkToPublic(r),
+  active: r.active,
+  sortOrder: r.sort_order,
+  updatedAt: r.updated_at,
+});
+
+export const linkFromBody = (b = {}) => ({
+  label: String(b.label || '').trim(),
+  url: String(b.url || '').trim(),
+  subtitle: b.subtitle ?? '',
+  icon: LINK_ICONS.includes(b.icon) ? b.icon : '',
+  tone: LINK_TONES.includes(b.tone) ? b.tone : 'rose',
+  active: b.active === 0 || b.active === false ? 0 : 1,
+  sort_order: Number.isFinite(+b.sortOrder) ? Math.trunc(+b.sortOrder) : 0,
+});
+
 // --- photos -----------------------------------------------------------------
 export const PHOTO_SLOTS = ['hero', 'gallery', 'join'];
 
