@@ -11,3 +11,7 @@ start-admin.command
 
 # Wrangler local state (local D1 sqlite, caches)
 .wrangler/
+
+# npm — the pinned wrangler CLI (package.json). Never deployed; Pages serves
+# the repo root as-is, so this must not reach the site.
+node_modules/
