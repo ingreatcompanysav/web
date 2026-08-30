@@ -267,6 +267,7 @@
       <select id="rsvpFilter"><option value="">All gatherings</option></select>
       <button id="reloadRsvpsBtn">Refresh</button>
       <button class="ghost" id="csvBtn">Download CSV</button>
+      <button class="ghost" id="rsvpResyncBtn" title="Send any rows marked “Sheet —” to the Google Sheet">Re-sync to Sheet</button>
       <span class="status grow" id="rsvpsStatus"></span>
     </div>
     <div id="rsvpsTable"></div>
@@ -347,6 +348,7 @@
       </select>
       <button id="reloadSubsBtn">Refresh</button>
       <button class="ghost" id="subsCsvBtn">Download CSV</button>
+      <button class="ghost" id="subsResyncBtn" title="Send any rows marked “Sheet —” to the newsletter Google Sheet">Re-sync to Sheet</button>
       <span class="status grow" id="subsStatus"></span>
     </div>
     <div id="subsTable"></div>
@@ -1319,12 +1321,57 @@ function renderRsvps(rows){
       <td>${escapeHtml(String(r.guests||1))}</td>
       <td>${escapeHtml(r.note||"")}</td>
       <td>${sync}</td>
+      <td class="subs-actions"><button class="mini ghost" data-rsvp-del="${r.id}" title="Delete this RSVP">✕</button></td>
     </tr>`;
   }).join("");
   rsvpsTableEl.innerHTML = `<table class="rsvps">
-    <thead><tr><th>When</th><th>Gathering</th><th>First name</th><th>Last name</th><th>Email</th><th>Guests</th><th>Note</th><th>Sheet</th></tr></thead>
+    <thead><tr><th>When</th><th>Gathering</th><th>First name</th><th>Last name</th><th>Email</th><th>Guests</th><th>Note</th><th>Sheet</th><th></th></tr></thead>
     <tbody>${body}</tbody></table>`;
 }
+rsvpsTableEl.addEventListener("click", e=>{
+  const id = e.target.dataset.rsvpDel;
+  if(id !== undefined) deleteRsvp(+id);
+});
+async function deleteRsvp(id){
+  // The sheet is an append-only log with no per-row key, so we only remove the
+  // record here — say so rather than let them assume both sides are cleaned.
+  if(!confirm("Delete this RSVP?\n\nIt's removed from the admin and the database. Any row already written to the Google Sheet stays there — delete that one by hand if you want it gone.")) return;
+  try{
+    setStatus("rsvpsStatus","Deleting…");
+    await api("DELETE","/api/admin/rsvps/"+id);
+    await loadRsvps();
+  }catch(err){ setStatus("rsvpsStatus","Delete failed: "+err.message,"warn"); }
+}
+
+// Replays rows stuck at "Sheet —". Batched server-side, so keep going until the
+// backlog is clear rather than making the admin guess how many presses it needs.
+async function resync(type, statusId, reload){
+  try{
+    let synced=0, failed=0, guard=0, last=null;
+    for(;;){
+      setStatus(statusId, `Re-syncing…${synced?" "+synced+" done":""}`);
+      const r = await api("POST","/api/admin/resync", { type });
+      synced += r.synced; failed += r.failed; last = r;
+      // Stop when the backlog is clear, when a pass moves nothing (every row
+      // failing would otherwise loop forever), or at a hard ceiling.
+      if(!r.remaining || r.synced === 0 || ++guard > 20) break;
+    }
+    await reload();
+    if(failed){
+      const why = (last && last.errors && last.errors[0]) ? ` (${last.errors[0].reason})` : "";
+      setStatus(statusId, `Re-synced ${synced}, ${failed} still failing${why}.`, "warn");
+    } else {
+      setStatus(statusId, synced ? `Re-synced ${synced} row${synced!==1?"s":""} ✓` : "Nothing to re-sync — everything is already in the Sheet.", "ok");
+    }
+  }catch(err){
+    const msg = /no_sheet_configured/.test(err.message)
+      ? "No Google Sheet is configured for this list yet (see SETUP.md)."
+      : "Re-sync failed: "+err.message;
+    setStatus(statusId, msg, "warn");
+  }
+}
+$("#rsvpResyncBtn").addEventListener("click", ()=> resync("rsvps","rsvpsStatus",loadRsvps));
+$("#subsResyncBtn").addEventListener("click", ()=> resync("subscribers","subsStatus",loadSubs));
 $("#reloadRsvpsBtn").addEventListener("click", loadRsvps);
 $("#rsvpFilter").addEventListener("change", loadRsvps);
 $("#csvBtn").addEventListener("click", ()=>{

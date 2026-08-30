@@ -57,7 +57,7 @@ function doPost(e) {
     if (row) {
       sheet.getRange(row, 2).setValue(body.first_name || '');
       sheet.getRange(row, 3).setValue(body.last_name || '');
-      sheet.getRange(row, STATUS_COL).setValue('Subscribed');
+      sheet.getRange(row, STATUS_COL).setValue(body.status || 'Subscribed');
       if (body.unsubscribe_url) sheet.getRange(row, 7).setValue(body.unsubscribe_url);
       return json_({ ok: true, updated: true });
     }
@@ -67,7 +67,7 @@ function doPost(e) {
       body.first_name || '',
       body.last_name || '',
       email,
-      'Subscribed',
+      body.status || 'Subscribed',
       body.source || '',
       body.unsubscribe_url || ''
     ]);

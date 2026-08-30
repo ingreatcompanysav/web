@@ -234,6 +234,33 @@ for when a link fails someone or an address shouldn't be on the list, plus a
 Unsubscribe for real people: Delete removes the suppression record, so that
 address could sign up again.
 
+## 6e. Keeping the Sheets in step — re-sync and delete
+
+Rows are written to D1 **first** and mirrored to a Sheet **second**, so a Sheet
+outage can never cost you an RSVP or a signup. The trade-off is that a row
+written while the Apps Script was misconfigured — wrong `/exec` URL, mismatched
+token, access not yet set to "Anyone" — stays behind in the Sheet forever,
+because nothing retries on its own.
+
+**Spotting it.** The **Sheet** column in the RSVPs and Newsletter tabs shows
+`Sheet ✓` or `Sheet —`. `Sheet —` means that row never reached Google.
+
+**Fixing it.** Press **Re-sync to Sheet** on either tab. It replays every
+`Sheet —` row, 25 per pass (each row is a slow call to Apps Script, and a large
+backlog in one request would time out), repeating until the backlog clears, then
+reports what it did. If rows still fail it shows the reason — `script_rejected`
+almost always means the token no longer matches; `non_json_response` means the
+web app is not deployed as "Anyone" or the URL is the `/dev` one.
+
+Re-syncing a subscriber who has opted out sends their real status, so a replay
+never puts an unsubscribed person back on the list.
+
+**Deleting.** RSVP rows have a **✕** for clearing out test records. It removes
+the row from D1 only — the RSVP sheet is an append-only log with no per-row key,
+so nothing can safely identify which sheet row to delete. If a row was already
+mirrored, delete it in the Sheet by hand. (Newsletter deletion is different: it
+is keyed by email, so it does update the Sheet — see 6d.)
+
 ## 7. Final verification
 
 - `/admin.html` → Access login → you can add/edit gatherings and quotes and see

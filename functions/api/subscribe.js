@@ -65,7 +65,7 @@ export async function onRequestPost({ request, env }) {
       first_name: firstName,
       last_name: lastName,
       email,
-      status: 'subscribed',
+      status: 'Subscribed',
       source,
       unsubscribe_url: `${origin}/unsubscribe?t=${token}`,
     },
