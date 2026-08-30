@@ -1,7 +1,7 @@
 // In Great Company — client app. Recreates the original SPA (routes: home,
 // gatherings, event, privacy) as modular, data-driven views.
 import { loadEvents, loadVoices, loadPhotos } from './api.js';
-import { AVATAR_BY_NAME, LINKS, HERO, NAV } from './data.js';
+import { AVATAR_BY_NAME, LINKS } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
 import { esc } from './util.js';
 import { mountSignup } from './signup.js';
@@ -74,14 +74,16 @@ function eventSkeleton(n, row) {
 // intrinsic size. The srcset only rides along on the baked-in photo: an R2
 // rotation photo is one arbitrary URL with no 480w sibling to point at, and a
 // srcset that lies about what it has is worse than none.
-function heroImage(state) {
-  const rotating = state.photos.hero;
-  const src = rotating || HERO.image;
-  const responsive = rotating
-    ? ''
-    : ` srcset="/assets/img/photo-hero-600.jpg 480w, ${HERO.image} 1000w"`
-      + ` sizes="(max-width:820px) 300px, 510px" width="1000" height="1249"`;
-  return `<img src="${esc(src)}"${responsive} fetchpriority="high" alt="${esc(HERO.imageAlt)}">`;
+// The hero <img> lives in index.html with a srcset for the baked-in photo. An
+// admin-uploaded rotating hero replaces it and has no responsive variants, so
+// srcset and sizes have to come off with it — left on, the browser would keep
+// picking the old file and the rotation would silently do nothing. width and
+// height go too: .hero__media sets aspect-ratio, so nothing shifts.
+function applyHeroPhoto() {
+  const img = heroEl && heroEl.querySelector('.hero__media img');
+  if (!img || !state.photos.hero) return;
+  for (const a of ['srcset', 'sizes', 'width', 'height']) img.removeAttribute(a);
+  img.src = state.photos.hero;
 }
 
 // The featured section's heading has to survive every count, because it sits
@@ -220,14 +222,6 @@ function quoteCard(v) {
 
 /* -------------------------------------------------------------- chrome */
 
-function navBar(active) {
-  const links = NAV.map(([r, l]) =>
-    `<button class="nav__link${active === r ? ' is-active' : ''}" data-nav="${r}">${l}</button>`).join('');
-  return `<nav class="nav" id="nav">
-    <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company"></button>
-    <div class="nav__links">${links}</div>
-  </nav>`;
-}
 
 function footer() {
   return `<footer class="footer">
@@ -256,22 +250,10 @@ function footer() {
 }
 
 /* ---------------------------------------------------------------- views */
+// The hero is index.html's; this is everything under it.
 function homeView(state) {
   const featured = state.events.filter((g) => !g.past).slice(0, 3);
   return `
-  <section class="hero">
-    <div class="hero__grid">
-      <div>
-        <div class="igc-eyebrow">${esc(HERO.eyebrow)}</div>
-        <h1 class="hero__title">${esc(HERO.titleLead)}<br>${scriptWord(HERO.titleScript, true)}</h1>
-        <p class="hero__lead">${esc(HERO.lead)}</p>
-        <div class="hero__actions">
-          ${button({ label: HERO.cta, size: 'lg', action: 'go-gatherings' })}
-        </div>
-      </div>
-      <div class="hero__media">${heroImage(state)}</div>
-    </div>
-  </section>
 
   <section class="section section--page">
     <div class="container">
@@ -489,6 +471,11 @@ function loadingView(msg) {
 }
 
 /* ---------------------------------------------------------------- router */
+// Chrome that index.html owns and app.js only ever updates in place.
+const heroEl = document.querySelector('.hero');
+const navLinks = [...document.querySelectorAll('#nav .nav__link')];
+const sectionsEl = document.getElementById('sections');
+
 const state = {
   route: 'home', events: [], voices: [], photos: {}, eventId: null, qty: 1, purchased: false,
   // loaded: the fetches have settled. *Failed: they settled badly. Before
@@ -521,15 +508,20 @@ function render() {
   if (route === 'event' && id && id !== state.eventId) {
     state.eventId = id; state.qty = 1; state.purchased = false;
   }
+  // The nav and the hero are index.html's and are never re-rendered — only
+  // their state moves. Everything else is swapped inside #sections.
   const navActive = route === 'event' ? 'gatherings' : route;
-  const app = document.getElementById('app');
+  navLinks.forEach((b) => b.classList.toggle('is-active', b.dataset.nav === navActive));
+  heroEl.hidden = route !== 'home';
+
   // Hand the signup form's state to its replacement before the innerHTML swap
   // destroys it. Without this every re-render — a seat change, the events
   // arriving, a retry — silently wipes a half-typed email and leaks the
   // form's Turnstile widget.
   const carry = signup ? signup.teardown() : null;
-  app.innerHTML = navBar(navActive) + `<main id="view">${viewFor(route)}</main>` + footer();
+  sectionsEl.innerHTML = viewFor(route);
   signup = mountSignup(document.getElementById('signup'), { source: 'home', carry });
+  applyHeroPhoto();
   syncNavScroll();
   const key = route + '/' + (id || '');
   if (key !== lastKey) { window.scrollTo(0, 0); lastKey = key; } // don't jump on in-place re-render (qty, purchase)
@@ -673,6 +665,7 @@ async function fetchAll() {
 }
 
 async function init() {
+  document.getElementById('site-footer').innerHTML = footer();  // constant
   // Paint before the fetches settle so the hero is up immediately. Until
   // `loaded` flips, the calendar sections render skeletons — this first paint
   // must not claim the calendar is empty, because it does not know yet.

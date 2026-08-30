@@ -9,7 +9,7 @@ everything from a browser admin, gated by **Cloudflare Access**.
 
 | Path | What it is |
 | --- | --- |
-| `index.html` | The public site's entry point — a static hero for crawlers, then `assets/js/app.js` takes over. Fetches `/api/events`, `/api/quotes` and `/api/photos`, and shows an RSVP form on each gathering. |
+| `index.html` | The public site. Owns the nav and hero as real markup; `assets/js/app.js` renders the sections beneath them. Fetches `/api/events`, `/api/quotes` and `/api/photos`, and shows an RSVP form on each gathering. |
 | `admin.html` | The editor for gatherings, quotes and RSVPs. **Deployed, but locked behind Cloudflare Access** — only the two editors' emails can open it. |
 | `functions/` | The `/api/*` endpoints (Pages Functions) that read and write the database. |
 | `db/` | `schema.sql` (tables) and `seed.sql` (initial data). |
@@ -30,9 +30,9 @@ exactly as they are.
 
 | Layer | Where |
 | --- | --- |
-| Markup | `index.html` (static hero for crawlers), `links.html`, `unsubscribe.html`, `404.html` |
-| Styles | `assets/css/` — `tokens.css` (design tokens), `base.css`, `components.css` |
-| App | `assets/js/app.js` renders the hash-routed views; `api.js` talks to the backend |
+| Markup | `index.html` (nav + hero), `links.html`, `unsubscribe.html`, `404.html` |
+| Styles | `assets/css/` — `tokens.css` (design tokens), `base.css`, `components.css`, `page.css` (the standalone card pages) |
+| App | `assets/js/app.js` renders the hash-routed views into `#sections`; `api.js` talks to the backend |
 
 ## Day-to-day: editing the site
 

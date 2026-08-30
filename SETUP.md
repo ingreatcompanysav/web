@@ -285,18 +285,3 @@ This serves the site with the Functions and a **local** copy of D1 (seeded in
 step 1 with `--local`) and reads secrets from `.dev.vars`. Cloudflare Access
 doesn't run locally, so the admin is open on `localhost` — that's expected.
 Leave `ACCESS_REQUIRED` **out** of `.dev.vars` so the admin API works locally.
-
-### Checking the static hero
-
-`index.html` carries a static copy of the homepage hero so that search crawlers
-and slow connections get a real `<h1>` and the intro copy without running JS;
-`app.js` overwrites it on first render. The wording lives in one place —
-`HERO` in `assets/js/data.js` — and this asserts `index.html` still matches:
-
-```bash
-node tools/check-static-hero.mjs
-```
-
-CI runs it on every push and PR. It matters because the failure is silent: edit
-the hero copy in `data.js`, forget `index.html`, and the site looks perfect
-while Google reads the old words.

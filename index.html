@@ -76,15 +76,14 @@
   </script>
 </head>
 <body>
-  <!-- app.js replaces #app wholesale on its first render, so everything below
-       is a first paint, not live markup. It earns its place twice: a crawler
-       that does not execute JS still sees a real <h1> and the intro copy, and
-       a slow connection shows the headline instead of a blank page.
+  <!-- The nav and the hero are LIVE MARKUP, not a first-paint copy: app.js
+       renders into #sections and #site-footer below and never touches these.
+       So a crawler that does not execute JS still gets a real <h1>, a slow
+       connection shows the headline instead of a blank page, and the words
+       exist in exactly one place — there is nothing here to keep in sync.
 
-       KEEP IN SYNC with navBar() and homeView()'s hero in assets/js/app.js.
-       Deliberately the hero only — the less mirrored here, the less can
-       drift. The nav is included so the JS render does not shove the hero
-       down a nav-height and cost us the layout shift. -->
+       app.js only reaches into the hero to swap the <img> when the admin has
+       uploaded a rotating photo. -->
   <div id="app">
     <nav class="nav" id="nav">
       <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company"></button>
@@ -107,7 +106,9 @@
           <div class="hero__media"><img src="/assets/img/photo-hero.jpg" srcset="/assets/img/photo-hero-600.jpg 480w, /assets/img/photo-hero.jpg 1000w" sizes="(max-width:820px) 300px, 510px" width="1000" height="1249" fetchpriority="high" alt="In Great Company members laughing together on a sailboat in Savannah"></div>
         </div>
       </section>
+      <div id="sections"></div>
     </main>
+    <div id="site-footer"></div>
   </div>
   <script type="module" src="/assets/js/app.js?v=2"></script>
 </body>

@@ -178,6 +178,9 @@
 
 /* ---- Hero ----------------------------------------------------------------- */
 .hero{background:var(--wash-sunrise);padding:88px var(--gutter-lg) 96px}
+/* The hero is index.html's and app.js hides it off the home route. Stated
+   explicitly so adding a `display` above cannot quietly un-hide it. */
+.hero[hidden]{display:none}
 .hero__grid{max-width:var(--width-page);margin:0 auto;display:grid;grid-template-columns:1.08fr .92fr;gap:var(--space-10);align-items:center}
 .hero__title{font-family:var(--font-display);font-weight:var(--weight-medium);font-size:var(--text-display-xl);line-height:var(--leading-display);letter-spacing:var(--tracking-display);margin:var(--space-4) 0 0;text-wrap:pretty}
 .hero__lead{font-size:var(--text-body-l);line-height:var(--leading-body);color:var(--text-muted);max-width:42ch;margin:var(--space-6) 0 0}
