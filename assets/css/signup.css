@@ -1,0 +1,85 @@
+/* ==========================================================================
+   Newsletter signup form — shared by the home page and the links page.
+   Its own file because links.html loads only tokens + base, not components.
+   ========================================================================== */
+
+.signup{display:flex;flex-direction:column;gap:var(--gap-inline);text-align:left}
+.signup__row{display:flex;gap:var(--gap-inline);flex-wrap:wrap}
+.signup__row .signup__field{flex:1 1 160px;min-width:0}
+.signup__field{display:flex;flex-direction:column}
+
+.signup__label{
+  font-size:var(--text-body-s);
+  font-weight:var(--weight-semibold);
+  color:var(--text-strong);
+  margin-bottom:var(--space-2);
+}
+.signup__input{
+  width:100%;
+  font-size:var(--text-body-m);
+  color:var(--text-strong);
+  background:var(--surface-sunk);
+  border:var(--border-w) solid var(--border-soft);
+  border-radius:var(--radius-sm);
+  padding:12px 13px;
+  transition:var(--transition-color);
+}
+.signup__input::placeholder{color:var(--text-subtle)}
+.signup__input:focus-visible{border-color:var(--border-focus);box-shadow:var(--focus-ring);outline:none}
+
+/* Turnstile renders an iframe of its own size; keep it from stretching. */
+.signup__ts:not(:empty){margin-top:var(--space-1)}
+
+.signup__btn{
+  font-size:var(--text-body-m);
+  font-weight:var(--weight-semibold);
+  background:var(--brand-primary);
+  color:var(--ink-on-rose);
+  border:var(--border-w) solid transparent;
+  border-radius:var(--radius-pill);
+  padding:14px 28px;
+  cursor:pointer;
+  transition:var(--transition-base);
+}
+.signup__btn:hover:not(:disabled){background:var(--brand-primary-hover);transform:var(--hover-lift)}
+.signup__btn:active:not(:disabled){transform:var(--press-scale)}
+.signup__btn:disabled{background:var(--state-disabled-bg);color:var(--state-disabled-fg);cursor:not-allowed}
+.signup__btn:focus-visible{box-shadow:var(--focus-ring);outline:none}
+
+.signup__msg:empty{display:none}
+.signup__msg{
+  font-size:var(--text-body-s);
+  line-height:var(--leading-body-tight);
+  color:var(--text-muted);
+  margin:0;
+}
+.signup__msg--err{
+  color:var(--brand-on-dark);
+  background:rgba(239,46,159,.12);
+  border-radius:var(--radius-sm);
+  padding:10px 12px;
+}
+.signup__fine{
+  font-size:var(--text-caption);
+  line-height:var(--leading-body-tight);
+  color:var(--text-muted);
+  margin:0;
+}
+
+.signup__done{text-align:center;animation:igcRise var(--dur-base) var(--ease-soft) both}
+.signup__done-title{
+  font-family:var(--font-display);
+  font-size:var(--text-heading-l);
+  font-weight:var(--weight-medium);
+  color:var(--text-strong);
+  margin:0 0 var(--space-2);
+}
+.signup__done-lead{
+  font-size:var(--text-body-s);
+  line-height:var(--leading-body);
+  color:var(--text-muted);
+  margin:0;
+}
+
+/* Home-page placement: the form sits in a narrow column under a centred heading. */
+.newsletter__form{max-width:var(--measure-narrow);margin:var(--space-8) auto 0}

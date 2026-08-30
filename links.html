@@ -10,13 +10,33 @@
   <link rel="icon" href="/assets/img/logo-cream.png" type="image/png">
   <link rel="apple-touch-icon" href="/assets/img/logo-cream.png">
 
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX', { send_page_view: false });
+</script>
+
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="In Great Company">
-  <meta property="og:title" content="In Great Company — links">
-  <meta property="og:description" content="Everything In Great Company, in one place.">
+  <!-- Title/description are what sit under the image on a shared card, so they
+       read as the group's name rather than repeating the page's tab title. -->
+  <meta property="og:title" content="In Great Company">
+  <meta property="og:description" content="A women's social group in Savannah, Georgia — Instagram, the Facebook group, upcoming gatherings, and how to reach us.">
   <meta property="og:url" content="https://ingreatcompanysav.com/links">
-  <meta property="og:image" content="https://ingreatcompanysav.com/assets/img/photo-hero.jpg">
+  <!-- Preview card: the wordmark on the brand teal, not a photo. The raw
+       logo PNG is a transparent cream wordmark, so it would render nearly
+       invisible on iMessage's white card — og-card.jpg bakes it onto the teal
+       at the 1200x630 the large-card scrapers expect. -->
+  <meta property="og:image" content="https://ingreatcompanysav.com/assets/img/og-card.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="In Great Company">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://ingreatcompanysav.com/assets/img/og-card.jpg">
+  <meta name="twitter:image:alt" content="In Great Company">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,6 +44,7 @@
 
   <link rel="stylesheet" href="/assets/css/tokens.css">
   <link rel="stylesheet" href="/assets/css/base.css">
+  <link rel="stylesheet" href="/assets/css/signup.css">
   <style>
     /* The links page is a single centred column — it shares the site's tokens
        but none of its layout, so its styles live here rather than in
@@ -158,6 +179,32 @@
     .links-foot a:hover{color:var(--text-strong)}
     .links-foot__dot{margin:0 var(--space-2);opacity:.5}
 
+    /* ---- newsletter ---- */
+    .links-signup{
+      margin-top:var(--space-8);
+      padding:clamp(20px,5vw,28px);
+      background:var(--surface-card);
+      border:var(--border-w) solid var(--border-hairline);
+      border-radius:var(--radius-md);
+      box-shadow:var(--shadow-sm);
+      animation:igcLift var(--dur-slow) var(--ease-soft) both;
+      animation-delay:600ms;
+    }
+    .links-signup__title{
+      font-family:var(--font-display);
+      font-size:var(--text-heading-l);
+      font-weight:var(--weight-medium);
+      color:var(--text-strong);
+      margin:0 0 var(--space-1);
+      text-align:center;
+    }
+    .links-signup__lead{
+      font-size:var(--text-body-s);
+      color:var(--text-muted);
+      margin:0 0 var(--space-5);
+      text-align:center;
+    }
+
     @media (max-width:480px){
       .link-btn{padding:14px 15px;gap:var(--space-3)}
       .link-btn__icon{width:38px;height:38px}
@@ -173,6 +220,12 @@
     </header>
 
     <ul class="links-list" id="links"></ul>
+
+    <section class="links-signup" aria-labelledby="signup-heading">
+      <h2 class="links-signup__title" id="signup-heading">Get the newsletter</h2>
+      <p class="links-signup__lead">The occasional note about what's coming up.</p>
+      <div id="signup"></div>
+    </section>
   </main>
 
   <footer class="links-foot">

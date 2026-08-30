@@ -1,0 +1,26 @@
+# Cloudflare Pages response headers.
+#
+# Why this file exists: Pages' default for static assets is
+# `max-age=14400, must-revalidate` — four hours of NOT revalidating. Our HTML is
+# always fresh (`max-age=0`), so after a deploy a returning visitor could get new
+# markup paired with a stale four-hour-old module. That is not just a cosmetic
+# lag: the newsletter form vanished exactly this way, because links.html gained
+# the container while the cached links.js still had no code to fill it.
+#
+# The site has no build step, so filenames carry no content hash and cannot be
+# cached safely by name. Instead we make code revalidate on every request — an
+# ETag match is a ~100-byte 304, so the cost is a round trip, not a re-download —
+# and let the big, rarely-changing binaries keep a real cache.
+
+/assets/js/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/css/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Images and fonts are large and change rarely; a day of staleness is fine.
+/assets/img/*
+  Cache-Control: public, max-age=86400
+
+/assets/fonts/*
+  Cache-Control: public, max-age=86400

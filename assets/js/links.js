@@ -5,6 +5,7 @@
 // tokens. The static LINKS object is the fallback when the API is unavailable
 // (previewing the files without the Pages Functions runtime, or a cold DB).
 import { LINKS } from './data.js';
+import { mountSignup } from './signup.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -68,6 +69,7 @@ async function init() {
   const list = document.getElementById('links');
   const links = (await loadLinks()) || FALLBACK;
   list.innerHTML = links.map(linkRow).join('');
+  mountSignup(document.getElementById('signup'), { source: 'links' });
 }
 
 init();
