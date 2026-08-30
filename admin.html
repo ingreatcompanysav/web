@@ -268,6 +268,7 @@
       <button id="reloadRsvpsBtn">Refresh</button>
       <button class="ghost" id="csvBtn">Download CSV</button>
       <button class="ghost" id="rsvpResyncBtn" title="Send any rows marked “Sheet —” to the Google Sheet">Re-sync to Sheet</button>
+      <button class="ghost" id="rsvpCheckBtn" title="Check the site can reach the Apps Script">Test Sheet connection</button>
       <span class="status grow" id="rsvpsStatus"></span>
     </div>
     <div id="rsvpsTable"></div>
@@ -349,6 +350,7 @@
       <button id="reloadSubsBtn">Refresh</button>
       <button class="ghost" id="subsCsvBtn">Download CSV</button>
       <button class="ghost" id="subsResyncBtn" title="Send any rows marked “Sheet —” to the newsletter Google Sheet">Re-sync to Sheet</button>
+      <button class="ghost" id="subsCheckBtn" title="Check the site can reach the newsletter Apps Script">Test Sheet connection</button>
       <span class="status grow" id="subsStatus"></span>
     </div>
     <div id="subsTable"></div>
@@ -1375,6 +1377,31 @@ async function resync(type, statusId, reload){
     setStatus(statusId, msg, "warn");
   }
 }
+// Plain-English causes for what the health check found, so nobody has to know
+// what a 403 from script.google.com implies.
+const CHECK_HELP = {
+  not_shared_with_anyone: "Google refused the request, so the script never ran. In Apps Script: Deploy → Manage deployments → edit the deployment shown above → set “Who has access” to Anyone (not “Anyone with Google account”), then Deploy.",
+  html_response: "Got a Google web page instead of the script's reply — usually a /dev URL rather than /exec, or a deployment still awaiting authorisation.",
+  unexpected_json: "Reached something, but not this project's script. Check the URL points at the right Apps Script deployment.",
+  fetch_error: "Couldn't reach the URL at all. Check APPS_SCRIPT_URL is a full https:// address.",
+};
+async function sheetCheck(type, statusId){
+  try{
+    setStatus(statusId, "Testing…");
+    const r = await api("GET","/api/admin/sheet-check?type="+type);
+    const where = `${r.endpoint||"?"}${r.deploymentId?" · deployment "+r.deploymentId:""}`;
+    if(r.ok){ setStatus(statusId, `Connected ✓ ${r.service} responded — ${where}`, "ok"); return; }
+    const why = CHECK_HELP[r.diagnosis] || `Unexpected reply (HTTP ${r.status}).`;
+    setStatus(statusId, `Can't reach the Sheet (HTTP ${r.status}) — ${where}. ${why}`, "warn");
+  }catch(err){
+    const msg = /no_sheet_configured/.test(err.message)
+      ? "No Google Sheet is configured for this list yet (see SETUP.md)."
+      : "Test failed: "+err.message;
+    setStatus(statusId, msg, "warn");
+  }
+}
+$("#rsvpCheckBtn").addEventListener("click", ()=> sheetCheck("rsvps","rsvpsStatus"));
+$("#subsCheckBtn").addEventListener("click", ()=> sheetCheck("subscribers","subsStatus"));
 $("#rsvpResyncBtn").addEventListener("click", ()=> resync("rsvps","rsvpsStatus",loadRsvps));
 $("#subsResyncBtn").addEventListener("click", ()=> resync("subscribers","subsStatus",loadSubs));
 $("#reloadRsvpsBtn").addEventListener("click", loadRsvps);

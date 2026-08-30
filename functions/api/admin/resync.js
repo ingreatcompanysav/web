@@ -37,8 +37,13 @@ export async function onRequestPost({ request, env }) {
   let endpoint = 'unparseable';
   try {
     const u = new URL(url);
-    const tail = u.pathname.split('/').filter(Boolean).pop() || '(no path)';
-    endpoint = `${u.host}/…/${tail}`;
+    const parts = u.pathname.split('/').filter(Boolean);
+    const tail = parts[parts.length - 1] || '(no path)';
+    const id = parts.length >= 3 ? parts[parts.length - 2] : '';
+    // The ID fragment is what lets you tell WHICH deployment is configured —
+    // fixing the access setting on a different one is an easy mistake to make.
+    const frag = id.length > 12 ? ` (deployment ${id.slice(0, 6)}…${id.slice(-4)})` : '';
+    endpoint = `${u.host}/…/${tail}${frag}`;
   } catch { /* keep 'unparseable' */ }
 
   const total = await env.DB.prepare(
