@@ -40,7 +40,7 @@ export function mountSignup(el, { source = '' } = {}) {
         <div class="signup__field">
           <label class="signup__label" for="su-last-${n}">Last name</label>
           <input class="signup__input" id="su-last-${n}" name="lastName" type="text"
-                 autocomplete="family-name" placeholder="Meier">
+                 autocomplete="family-name" placeholder="McFadden">
         </div>
       </div>
       <div class="signup__field">
