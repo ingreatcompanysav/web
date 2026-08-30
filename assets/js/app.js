@@ -55,6 +55,74 @@ function mediaPlaceholder(g) {
   return `<span class="media-ph media-ph--${esc(g.tone || 'cyan')}" aria-hidden="true"><span class="media-ph__mark">${esc(initial)}</span></span>`;
 }
 
+// Placeholders held at the real cards' geometry, so the calendar sections keep
+// their height while the fetch is in flight and nothing jumps when it lands.
+// Purely decorative: the live region announces the outcome, not the wait.
+function eventSkeleton(n, row) {
+  const one = `<div class="skel-card${row ? ' skel-card--row' : ''}" aria-hidden="true">
+    <div class="skel-card__media"></div>
+    <div class="skel-card__body">
+      <span class="skel-line skel-line--meta"></span>
+      <span class="skel-line skel-line--title"></span>
+      <span class="skel-line skel-line--text"></span>
+    </div>
+  </div>`;
+  return Array.from({ length: n }, () => one).join('');
+}
+
+// The hero image is the LCP element, so it declares its priority and its
+// intrinsic size. The srcset only rides along on the baked-in photo: an R2
+// rotation photo is one arbitrary URL with no 480w sibling to point at, and a
+// srcset that lies about what it has is worse than none.
+function heroImage(state) {
+  const rotating = state.photos.hero;
+  const src = rotating || HERO.image;
+  const responsive = rotating
+    ? ''
+    : ` srcset="/assets/img/photo-hero-600.jpg 480w, ${HERO.image} 1000w"`
+      + ` sizes="(max-width:820px) 300px, 510px" width="1000" height="1249"`;
+  return `<img src="${esc(src)}"${responsive} fetchpriority="high" alt="${esc(HERO.imageAlt)}">`;
+}
+
+// The featured section's heading has to survive every count, because it sits
+// above the cards and is read first. It used to promise three whatever the
+// calendar held — three, one, or none. Before the fetch settles, and whenever
+// it fails, the heading claims nothing about the count at all.
+function featuredHeading(state, count) {
+  if (!state.loaded || state.eventsFailed) return { title: 'What’s on the', script: 'calendar' };
+  if (count === 0) return { title: 'The calendar is quiet this', script: 'week' };
+  if (count === 1) {
+    return {
+      title: 'Something to look forward',
+      script: 'to',
+      description: 'One on the books right now. Come as you are — no application, no fee.',
+    };
+  }
+  return {
+    title: count === 2 ? 'Two ways to spend a' : 'Three ways to spend a',
+    script: 'week',
+    description: 'Coffee, long dinners, and slow Sunday mornings. Come to one, come to all of them.',
+  };
+}
+
+// The calendar with nothing in it. `failed` separates the two ways that
+// happens, because they are not the same news: an empty week is the club's,
+// an unreachable server is ours, and only one of them is worth retrying.
+function calendarEmpty(failed) {
+  return `<div class="empty-state">
+    <p class="empty-state__title">${failed
+      ? 'We can’t reach the calendar right now.'
+      : 'Nothing on the calendar just yet.'}</p>
+    <p class="empty-state__note">${failed
+      ? 'That’s on us, not on you. Try again in a moment — or Instagram always has what’s next.'
+      : 'Plans here come together fast, and the last-minute ones land on Instagram first.'}</p>
+    <div class="empty-state__actions">
+      ${failed ? button({ label: 'Try again', action: 'retry-load' }) : ''}
+      ${button({ label: '@ingreatcompanysav', variant: 'outline', action: 'open-instagram', icon: 'instagram' })}
+    </div>
+  </div>`;
+}
+
 function eventCard(g, row) {
   const status = g.past ? null : statusOf(g);
   const meta = [g.date, g.time, row ? g.place : null].filter(Boolean).join(' · ');
@@ -156,7 +224,7 @@ function navBar(active) {
   const links = NAV.map(([r, l]) =>
     `<button class="nav__link${active === r ? ' is-active' : ''}" data-nav="${r}">${l}</button>`).join('');
   return `<nav class="nav" id="nav">
-    <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream.png" alt="In Great Company"></button>
+    <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company"></button>
     <div class="nav__links">${links}</div>
   </nav>`;
 }
@@ -165,7 +233,7 @@ function footer() {
   return `<footer class="footer">
     <div class="footer__grid">
       <div>
-        <img class="footer__logo" src="/assets/img/logo-cream.png" alt="In Great Company">
+        <img class="footer__logo" src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company">
         <p class="footer__blurb">A women's social group in Savannah, Georgia. Come as you are. You're in great company. 💛</p>
       </div>
       <div class="footer__col">
@@ -201,7 +269,7 @@ function homeView(state) {
           ${button({ label: HERO.cta, size: 'lg', action: 'go-gatherings' })}
         </div>
       </div>
-      <div class="hero__media"><img src="${esc(state.photos.hero || HERO.image)}" alt="${esc(HERO.imageAlt)}"></div>
+      <div class="hero__media">${heroImage(state)}</div>
     </div>
   </section>
 
@@ -221,20 +289,29 @@ function homeView(state) {
   <section class="section section--card">
     <div class="container">
       <div class="section-head">
-        ${sectionHeading({ eyebrow: "What's coming up", title: 'Three ways to spend a', script: 'week', description: 'Coffee, long dinners, and slow Sunday mornings. Come to one, come to all of them.' })}
-        ${button({ label: 'See All Gatherings →', variant: 'ghost', action: 'go-gatherings' })}
+        ${sectionHeading({ eyebrow: "What's coming up", ...featuredHeading(state, featured.length) })}
+        ${featured.length ? button({ label: 'See All Gatherings →', variant: 'ghost', action: 'go-gatherings' }) : ''}
       </div>
-      ${featured.length
-        ? `<div class="grid-3 mt-8">${featured.map((g) => eventCard(g)).join('')}</div>`
-        : `<p class="prose-lead mt-8" style="text-align:center;margin-inline:auto">Nothing on the calendar this very minute — follow along on Instagram for the next last-minute plan.</p>`}
+      <div class="mt-8" data-calendar aria-live="polite" aria-busy="${!state.loaded}">
+        ${!state.loaded
+          ? `<div class="grid-3">${eventSkeleton(3)}</div>`
+          : featured.length
+            ? `<div class="grid-3">${featured.map((g) => eventCard(g)).join('')}</div>`
+            : calendarEmpty(state.eventsFailed)}
+      </div>
     </div>
   </section>
 
-  ${state.voices.length ? `
+  ${/* Absence of testimonials makes no claim, so a genuinely empty pool hides
+        the whole section rather than apologising for itself. What it must not
+        do is vanish and reappear mid-load — hence the skeleton. */
+    !state.loaded || state.voices.length ? `
   <section class="section section--sunk">
     <div class="container">
       ${sectionHeading({ center: true, size: 'xl', eyebrow: 'In their words', title: 'Women who came alone', script: 'once' })}
-      <div class="grid-3 mt-8">${state.voices.map(quoteCard).join('')}</div>
+      <div class="grid-3 mt-8" aria-busy="${!state.loaded}">
+        ${state.loaded ? state.voices.map(quoteCard).join('') : eventSkeleton(3)}
+      </div>
     </div>
   </section>` : ''}
 
@@ -267,10 +344,12 @@ function gatheringsView(state) {
     </div>
   </section>
   <section class="section section--page" style="padding:var(--space-9) var(--gutter-lg) var(--section-y)">
-    <div class="container" style="display:flex;flex-direction:column;gap:var(--space-5)">
-      ${upcoming.length
-        ? upcoming.map((g) => eventCard(g, true)).join('')
-        : `<p class="prose-lead" style="text-align:center;margin-inline:auto">Nothing on the calendar this very minute — check back soon, or follow along on Instagram for the next last-minute plan.</p>`}
+    <div class="container gathering-list" data-calendar aria-live="polite" aria-busy="${!state.loaded}">
+      ${!state.loaded
+        ? eventSkeleton(3, true)
+        : upcoming.length
+          ? upcoming.map((g) => eventCard(g, true)).join('')
+          : calendarEmpty(state.eventsFailed)}
     </div>
   </section>
   ${past.length ? `
@@ -410,7 +489,12 @@ function loadingView(msg) {
 }
 
 /* ---------------------------------------------------------------- router */
-const state = { route: 'home', events: [], voices: [], photos: {}, eventId: null, qty: 1, purchased: false, loaded: false };
+const state = {
+  route: 'home', events: [], voices: [], photos: {}, eventId: null, qty: 1, purchased: false,
+  // loaded: the fetches have settled. *Failed: they settled badly. Before
+  // `loaded`, the views must not assert anything about what is on the calendar.
+  loaded: false, eventsFailed: false, voicesFailed: false,
+};
 
 function parseHash() {
   const h = (location.hash || '').replace(/^#\/?/, '');
@@ -430,6 +514,7 @@ function viewFor(route) {
 }
 
 let lastKey = null;
+let signup = null; // handle to the mounted newsletter form, across re-renders
 function render() {
   const { route, id } = parseHash();
   state.route = route;
@@ -438,8 +523,13 @@ function render() {
   }
   const navActive = route === 'event' ? 'gatherings' : route;
   const app = document.getElementById('app');
+  // Hand the signup form's state to its replacement before the innerHTML swap
+  // destroys it. Without this every re-render — a seat change, the events
+  // arriving, a retry — silently wipes a half-typed email and leaks the
+  // form's Turnstile widget.
+  const carry = signup ? signup.teardown() : null;
   app.innerHTML = navBar(navActive) + `<main id="view">${viewFor(route)}</main>` + footer();
-  mountSignup(document.getElementById('signup'), { source: 'home' });
+  signup = mountSignup(document.getElementById('signup'), { source: 'home', carry });
   syncNavScroll();
   const key = route + '/' + (id || '');
   if (key !== lastKey) { window.scrollTo(0, 0); lastKey = key; } // don't jump on in-place re-render (qty, purchase)
@@ -469,6 +559,7 @@ document.addEventListener('click', (e) => {
     case 'inc-qty': state.qty = Math.min(6, state.qty + 1); render(); refocusSeat('inc-qty'); break;
     case 'dec-qty': state.qty = Math.max(1, state.qty - 1); render(); refocusSeat('dec-qty'); break;
     case 'reset-purchase': state.purchased = false; state.qty = 1; render(); break;
+    case 'retry-load': retryLoad(); break;
     case 'buy': buyCurrent(); break;
     default: break;
   }
@@ -490,7 +581,13 @@ function buyCurrent() {
   if (!g) return;
   if (g.price > 0 && !g.stripeUrl) return;
   if (g.stripeUrl) { window.open(g.stripeUrl + '?quantity=' + state.qty, '_blank'); return; }
-  openRSVP({ eventId: g.id, title: g.title, guests: state.qty, onSuccess: () => { state.purchased = true; render(); } });
+  openRSVP({
+    eventId: g.id,
+    title: g.title,
+    meta: [g.date, g.time, g.place].filter(Boolean).join(' · '),
+    guests: state.qty,
+    onSuccess: () => { state.purchased = true; render(); },
+  });
 }
 
 window.addEventListener('hashchange', () => { closeRSVP(); render(); });
@@ -563,15 +660,40 @@ function syncEventSchema(events) {
 }
 
 /* ------------------------------------------------------------- bootstrap */
-async function init() {
-  render(); // paint immediately with empty data (fallbacks fill in)
+async function fetchAll() {
   const [events, voices, photos] = await Promise.all([loadEvents(), loadVoices(), loadPhotos()]);
-  state.events = events;
-  state.voices = voices;
+  state.eventsFailed = events === null;
+  state.voicesFailed = voices === null;
+  state.events = events || [];
+  state.voices = voices || [];
   state.photos = photos;
   state.loaded = true;
-  render(); // re-render with data
-  syncEventSchema(events);
+  render();
+  syncEventSchema(state.events);
+}
+
+async function init() {
+  // Paint before the fetches settle so the hero is up immediately. Until
+  // `loaded` flips, the calendar sections render skeletons — this first paint
+  // must not claim the calendar is empty, because it does not know yet.
+  render();
+  await fetchAll();
+}
+
+// "Try again" from the failed-calendar state. Drops back to the skeleton so
+// the button cannot be pressed twice into the same request, and so a retry
+// that fails the same way still visibly did something.
+let retrying = false;
+async function retryLoad() {
+  if (retrying) return;
+  retrying = true;
+  state.loaded = false;
+  render();
+  try {
+    await fetchAll();
+  } finally {
+    retrying = false;
+  }
 }
 
 init();

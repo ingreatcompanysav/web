@@ -38,5 +38,12 @@ export async function mountTurnstile(box, opts = {}) {
     reset() {
       try { window.turnstile.reset(id); } catch { /* widget already gone */ }
     },
+    // Turnstile keeps its own registry keyed by this id, so a widget whose
+    // container has been thrown away is still live to it — the console fills
+    // with "Cannot find Widget" once a few have piled up. Callers that discard
+    // the container must say so.
+    remove() {
+      try { window.turnstile.remove(id); } catch { /* widget already gone */ }
+    },
   };
 }

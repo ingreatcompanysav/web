@@ -1,10 +1,12 @@
-// The RSVP modal. openRSVP({ eventId, title, guests, onSuccess }) opens it and
-// posts to /api/rsvp.
+// The RSVP modal. openRSVP({ eventId, title, meta, guests, onSuccess }) opens it
+// and posts to /api/rsvp. `meta` is the event's when-and-where, shown under the
+// title so the dialog states what is being agreed to.
 //
 // Built on <dialog>. showModal() supplies the modal semantics, the focus trap,
 // Escape-to-close, the inert background and focus restore on close — all of
 // which this file used to hand-roll. What is left is the form.
 import { mountTurnstile } from './turnstile.js';
+import { friendly } from './util.js';
 
 let dlg = null;
 let ts = null;
@@ -18,6 +20,7 @@ function build() {
       <div>
         <h2 class="rsvp__title">Save your seat</h2>
         <p class="rsvp__sub" data-igc="sub"></p>
+        <p class="rsvp__when" data-igc="when"></p>
       </div>
       <button type="button" class="rsvp__close" data-igc="close" aria-label="Close">&times;</button>
     </header>
@@ -47,9 +50,8 @@ function build() {
       <div data-igc="ts"></div>
       <p class="rsvp__msg" data-igc="msg" role="status" aria-live="polite"></p>
       <button type="submit" class="rsvp__submit" data-igc="submit">Send RSVP</button>
-      <p class="rsvp__fine">By RSVPing, you confirm you're 21 or older and agree we can
-        email you about this event. We never sell your info.
-        <a href="#privacy">Privacy Policy</a></p>
+      <p class="rsvp__fine">By RSVPing, you agree we can email you about this event.
+        We never sell your info. <a href="#privacy">Privacy Policy</a></p>
     </form>`;
   document.body.appendChild(dlg);
 
@@ -87,6 +89,9 @@ export function openRSVP(opts) {
   form.querySelector('[name="guests"]').value =
     String(Math.max(1, Math.min(6, parseInt(current.guests, 10) || 1)));
   $('sub').textContent = current.title ? `for ${current.title}` : '';
+  // The when and where, at the moment of committing. Without it the only way to
+  // check the date you are saying yes to is to close the dialog and reopen it.
+  $('when').textContent = current.meta || '';
   $('submit').disabled = false;
   setMsg('');
 
@@ -127,16 +132,18 @@ async function submit(e) {
         note: val('note'),
         turnstileToken: ts ? ts.token() : '',
       }),
-    });
+    }).catch(() => { throw new Error('network'); });
     const out = await r.json().catch(() => null);
-    if (!r.ok || !out || !out.ok) throw new Error('rejected');
+    if (!r.ok || !out || !out.ok) throw new Error((out && out.error) || 'HTTP ' + r.status);
 
     setMsg("You're on the list — see you there! 💛", true);
     if (typeof current.onSuccess === 'function') current.onSuccess();
     setTimeout(closeRSVP, 1400);
-  } catch {
+  } catch (err) {
     btn.disabled = false;
     if (ts) ts.reset();
-    setMsg("Sorry — that didn't go through. Please try again.");
+    // Same mapping the signup form uses: a bad email, a failed spam check and
+    // a dropped connection are three different problems and three fixes.
+    setMsg(friendly(err.message));
   }
 }

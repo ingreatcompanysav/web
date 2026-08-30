@@ -9,6 +9,10 @@
 .section{padding:var(--section-y) var(--gutter-lg)}
 .section--page{background:var(--surface-page)}
 .section--card{background:var(--surface-card)}
+/* Two card bands touching (the voices section between them can be absent) read
+   as one continuous slab — the surfaces sit within ~5% luminance of each
+   other. A hairline is enough to say "new section" without a colour change. */
+.section--card + .section--card{border-top:1px solid var(--border-hairline)}
 .section--sunk{background:var(--surface-sunk)}
 .section--rose{background:var(--surface-rose)}
 
@@ -148,11 +152,16 @@
 .past-gatherings__list .event-card:hover{opacity:1}
 
 /* ---- Quote ---------------------------------------------------------------- */
+/* Column layout so a short testimonial pins its citation to the card's floor
+   instead of leaving it floating wherever the quote happened to end. */
 .quote{
   margin:0;background:var(--surface-card);color:var(--text-body);
-  border-radius:var(--radius-xl);padding:var(--space-8);text-align:left;box-shadow:var(--shadow-sm)
+  border-radius:var(--radius-xl);padding:var(--space-8);text-align:left;box-shadow:var(--shadow-sm);
+  display:flex;flex-direction:column;justify-content:space-between;height:100%
 }
-.quote--deep{background:var(--surface-deep)}
+/* --surface-deep is darker than the --surface-sunk band these sit on, which
+   read as a hole punched between its two neighbours. Lifted instead. */
+.quote--deep{background:var(--surface-accent)}
 .quote__body{
   margin:0;font-family:var(--font-display);font-style:italic;font-weight:var(--weight-regular);
   font-size:clamp(22px,2.4vw,30px);line-height:1.34;letter-spacing:-.01em;color:var(--text-strong);max-width:30ch
@@ -201,9 +210,80 @@
 .footer__legal:focus-visible{outline:2px solid var(--cyan-300);outline-offset:3px;border-radius:3px}
 
 /* ---- EventCard (horizontal, gatherings list) ------------------------------ */
-.event-card--row{flex-direction:row;gap:var(--space-4);align-items:stretch}
-.event-card--row .event-card__media{aspect-ratio:1/1;flex:0 0 34%}
-.event-card--row .event-card__body{padding:4px 4px 4px 0}
+/* The media used to be a square at 34% of the container, which in a 1200px
+   page is a 388px side and forced every row to 430px tall against ~135px of
+   text. A fixed landscape thumbnail lets the copy set the height instead. */
+.event-card--row{flex-direction:row;gap:var(--space-5);align-items:stretch}
+.event-card--row .event-card__media{aspect-ratio:4/3;flex:0 0 220px;align-self:stretch}
+.event-card--row .event-card__body{padding:4px 4px 4px 0;justify-content:space-between}
+
+.gathering-list{display:flex;flex-direction:column;gap:var(--space-5)}
+
+/* ---- Loading skeleton ----------------------------------------------------- */
+/* Holds the calendar's shape while /api/events is in flight, so the section
+   cannot flash "nothing scheduled" before it knows. Decorative only — the
+   surrounding live region announces the result, not the wait. The global
+   prefers-reduced-motion rule in base.css flattens the pulse. */
+.skel-card{
+  border-radius:var(--radius-lg);padding:var(--pad-card-tight);background:var(--surface-card);
+  display:flex;flex-direction:column;gap:var(--space-4);
+  animation:skel-pulse 1.6s var(--ease-soft) infinite alternate
+}
+.skel-card__media{
+  background:var(--cream-200);border-radius:var(--radius-md);aspect-ratio:3/2;flex:0 0 auto
+}
+.skel-card__body{display:flex;flex-direction:column;gap:var(--space-3);flex:1 1 0;padding:4px 6px 8px}
+.skel-line{display:block;height:11px;border-radius:var(--radius-pill);background:var(--cream-200)}
+.skel-line--meta{width:42%}
+.skel-line--title{width:78%;height:20px}
+.skel-line--text{width:62%}
+.skel-card--row{flex-direction:row;gap:var(--space-5)}
+.skel-card--row .skel-card__media{aspect-ratio:4/3;flex:0 0 220px;align-self:stretch}
+.skel-card--row .skel-card__body{padding:4px 4px 4px 0;justify-content:center}
+/* Stagger so the three read as one group breathing, not three separate blinks. */
+.skel-card:nth-child(2){animation-delay:.18s}
+.skel-card:nth-child(3){animation-delay:.36s}
+@keyframes skel-pulse{from{opacity:1}to{opacity:.55}}
+
+/* ---- Empty state ---------------------------------------------------------- */
+/* The calendar with nothing in it, in both of its flavours. A designed slot
+   rather than a stray sentence: an empty calendar is a real state here, not
+   an error, and it still has to offer somewhere to go. */
+.empty-state{
+  background:var(--surface-sunk);border:1px solid var(--border-hairline);
+  border-radius:var(--radius-xl);padding:var(--space-9) var(--space-7);
+  display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--space-4)
+}
+.empty-state__title{
+  margin:0;font-family:var(--font-display);font-weight:var(--weight-medium);
+  font-size:clamp(20px,3vw,26px);line-height:1.25;letter-spacing:var(--tracking-display);
+  color:var(--text-strong)
+}
+.empty-state__note{
+  margin:0;font-size:var(--text-body-l);line-height:var(--leading-body);
+  color:var(--text-muted);max-width:46ch
+}
+.empty-state__actions{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-3);margin-top:var(--space-2)
+}
+
+/* ---- Touch targets --------------------------------------------------------
+   --touch-min has been declared in tokens.css and consumed by nothing. These
+   five controls all sat under it (21–36px). The nav links and the seat stepper
+   grow via a centred pseudo-element rather than padding, because their visual
+   size is the design: padding would drag the active underline off the word and
+   resize the stepper pills. The footer links are in columns where real padding
+   is free, so they take it — and the column gap shrinks to keep neighbouring
+   targets from overlapping each other. */
+.nav__link,.nav__logo,.seats__btn{position:relative}
+.nav__link::after,.nav__logo::after,.seats__btn::after{
+  content:"";position:absolute;left:50%;top:50%;translate:-50% -50%;
+  width:100%;min-width:var(--touch-min);height:var(--touch-min)
+}
+.footer__col{gap:2px}
+.footer__head{margin-bottom:6px}
+.footer__link{padding-block:10px}
+.footer__legal{display:inline-flex;align-items:center;min-height:var(--touch-min)}
 
 /* ---- Back link ------------------------------------------------------------ */
 .back-link{display:inline-block;font-size:14px;text-decoration:none;letter-spacing:.01em;color:var(--text-body);background:none;border:0;padding:0;cursor:pointer;transition:var(--transition-color)}
@@ -270,9 +350,11 @@
   .hero__grid,.grid-3,.footer__grid,.event-detail{grid-template-columns:1fr}
   .hero__media{max-width:300px;margin-left:auto;margin-right:auto}
   .ticket{position:static;top:auto}
-  .event-card--row{flex-direction:column}
-  .event-card--row .event-card__media{aspect-ratio:3/2;flex:0 0 auto}
+  .event-card--row,.skel-card--row{flex-direction:column}
+  .event-card--row .event-card__media,.skel-card--row .skel-card__media{aspect-ratio:3/2;flex:0 0 auto}
   .event-card--row .event-card__body{padding:4px 6px 8px}
+  .skel-card--row .skel-card__body{padding:4px 6px 8px;justify-content:flex-start}
+  .empty-state{padding:var(--space-8) var(--space-5)}
   .footer__bar{flex-direction:column;gap:var(--space-2)}
 }
 
@@ -290,6 +372,10 @@
    which the dark theme makes cream — invisible on this cream card. */
 .rsvp__title{font-family:var(--font-display);font-size:22px;font-weight:var(--weight-semibold);margin:0;color:var(--igc-teal)}
 .rsvp__sub{font-size:13px;opacity:.7;margin:2px 0 0}
+/* The event's when-and-where. Weighted a step up from the title's subtitle:
+   it is the fact being agreed to, not a caption. Empty when we have none. */
+.rsvp__when{font-size:13px;font-weight:var(--weight-semibold);margin:4px 0 0;color:rgba(10,66,71,.82)}
+.rsvp__when:empty{display:none}
 .rsvp__close{border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:inherit;padding:0}
 .rsvp__form{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) 22px 22px}
 .rsvp__row{display:flex;gap:var(--space-3);flex-wrap:wrap}

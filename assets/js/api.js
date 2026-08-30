@@ -1,8 +1,10 @@
 // Backend data access: /api/events, /api/quotes, /api/photos.
 //
-// Every loader degrades to empty rather than to invented content. The views
-// render a real empty state for that; a fabricated gathering would be worse
-// than a blank calendar, because someone would show up to it.
+// No loader ever invents content: a fabricated gathering would be worse than a
+// blank calendar, because someone would show up to it. What they do instead is
+// report the difference between "nothing scheduled" and "we could not reach the
+// server" — an empty array for the first, null for the second — so the views
+// can tell the visitor which one they are looking at.
 
 async function getJson(url) {
   try {
@@ -14,15 +16,19 @@ async function getJson(url) {
   }
 }
 
+// null means "could not load", which is not the same thing as an empty
+// calendar: one is our problem, the other is just a quiet week. The views say
+// different things for each, so the distinction has to survive the loader.
 export async function loadEvents() {
   const d = await getJson('/api/events');
-  return Array.isArray(d) ? d : [];
+  return Array.isArray(d) ? d : null;
 }
 
 // Random 3 quotes per visit, mapped into the shape the Quote card expects.
+// null on failure, same reasoning as loadEvents.
 export async function loadVoices() {
   const d = await getJson('/api/quotes');
-  if (!Array.isArray(d)) return [];
+  if (!Array.isArray(d)) return null;
   const pool = d.map((q) => ({
     tone: q.tone, name: q.name, detail: q.detail,
     quote: q.body, monogram: q.monogram, avatar: q.avatar,

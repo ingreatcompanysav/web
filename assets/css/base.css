@@ -1,13 +1,20 @@
 /* ==========================================================================
    In Great Company — base element styles.
-   Playfair Display, Montserrat, Kolker Brush load from Google Fonts (see the
-   <link> in index). "Sisterhood" is a custom face with no web source, so it is
+   Playfair Display and Montserrat load from Google Fonts (see the <link> in
+   index). "Sisterhood" is a custom face with no web source, so it is
    self-hosted here.
    ========================================================================== */
 
+/* woff2 first: it is a subset (Latin, punctuation, and the A–Z that
+   .media-ph__mark draws as an event initial) and 146KB against the raw
+   truetype's 406KB. The .ttf stays as the second source for the rare browser
+   with no woff2 support — every current one takes the first and never
+   requests it. Regenerate the subset if the script face ever needs a
+   character outside U+0020-007E, U+00B7, U+2013-2014, U+2018-2019, U+2026. */
 @font-face{
   font-family:"Sisterhood";
-  src:url("/assets/fonts/sisterhood.ttf") format("truetype");
+  src:url("/assets/fonts/sisterhood.woff2") format("woff2"),
+      url("/assets/fonts/sisterhood.ttf") format("truetype");
   font-weight:400;
   font-style:normal;
   font-display:swap;

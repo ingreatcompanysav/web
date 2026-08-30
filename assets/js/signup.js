@@ -4,12 +4,22 @@
 // to POST /api/subscribe. `source` is recorded with the subscriber so the client
 // can see which form someone came through.
 import { mountTurnstile } from './turnstile.js';
-import { esc } from './util.js';
+import { esc, friendly } from './util.js';
 
 let seq = 0; // unique ids, so two forms on one page keep their labels straight
 
-export function mountSignup(el, { source = '' } = {}) {
-  if (!el) return;
+export function mountSignup(el, { source = '', carry = null } = {}) {
+  if (!el) return null;
+
+  // The home view re-renders by replacing #app wholesale, which throws this
+  // form away and builds a new one. `carry` is the previous instance's state,
+  // handed over so a half-typed email and a completed signup both survive a
+  // re-render that had nothing to do with them.
+  if (carry && carry.done) {
+    el.innerHTML = carry.done;
+    return { teardown: () => ({ done: carry.done }) };
+  }
+
   const n = ++seq;
   el.innerHTML = `
     <form class="signup" novalidate>
@@ -43,7 +53,15 @@ export function mountSignup(el, { source = '' } = {}) {
   const tsBox = el.querySelector('.signup__ts');
 
   let ts = null;
+  let done = null;
   mountTurnstile(tsBox, { theme: 'dark' }).then((handle) => { ts = handle; });
+
+  if (carry && carry.values) {
+    for (const [name, value] of Object.entries(carry.values)) {
+      const input = form.querySelector(`[name="${name}"]`);
+      if (input) input.value = value;
+    }
+  }
 
   const say = (text, kind) => {
     msg.textContent = text || '';
@@ -70,29 +88,36 @@ export function mountSignup(el, { source = '' } = {}) {
           source,
           turnstileToken: ts ? ts.token() : '',
         }),
-      });
+      }).catch(() => { throw new Error('network'); });
       const out = await r.json().catch(() => null);
       if (!r.ok || !out || !out.ok) throw new Error((out && out.error) || 'HTTP ' + r.status);
 
-      el.innerHTML = `<div class="signup__done">
+      done = `<div class="signup__done">
         <h3 class="signup__done-title">${out.alreadySubscribed ? "You're already on the list" : "You're on the list"}</h3>
         <p class="signup__done-lead">${out.alreadySubscribed
           ? `We already had ${esc(email)} — nothing else to do.`
           : `We'll write to ${esc(email)} when there's something worth knowing.`}</p>
       </div>`;
+      el.innerHTML = done;
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Sign me up';
       if (ts) ts.reset();
       say(friendly(err.message), 'err');
     }
   });
-}
 
-// Endpoint error codes are for us, not for a person reading a form.
-function friendly(code) {
-  if (code === 'email_invalid') return "That email doesn't look quite right — mind checking it?";
-  if (code === 'email_required') return 'Please enter your email address.';
-  if (code === 'first_name_required') return 'Please tell us your first name.';
-  if (code === 'turnstile_failed') return "The spam check didn't pass. Please try once more.";
-  return "That didn't go through. Please try again in a moment.";
+  // Called by the view before it discards this form's container. Removing the
+  // Turnstile widget matters: Turnstile keeps its own registry, so an orphaned
+  // widget stays live to it and the console fills with "Cannot find Widget".
+  return {
+    teardown() {
+      if (ts) ts.remove();
+      if (done) return { done };
+      return {
+        values: Object.fromEntries(
+          [...form.querySelectorAll('input[name]')].map((i) => [i.name, i.value]),
+        ),
+      };
+    },
+  };
 }
