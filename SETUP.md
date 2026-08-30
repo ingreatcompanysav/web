@@ -5,7 +5,9 @@ Functions** (the `/api/*` endpoints), **Cloudflare Access** to lock the admin,
 and a **Google Apps Script** that copies RSVPs into a Sheet. This file is the
 checklist to wire it all up. You only do this once.
 
-You need [Node.js](https://nodejs.org) installed (for the `wrangler` CLI) and to
+You need [Node.js](https://nodejs.org) installed. Run `npm install` once to get
+the pinned `wrangler` CLI (package.json fixes the exact version, so everyone
+runs the same one), then
 be logged into the Cloudflare account that owns the Pages project.
 
 > **Order matters.** The dashboard won't let you add secrets until a deployment
@@ -21,8 +23,8 @@ be logged into the Cloudflare account that owns the Pages project.
 From the `web/` folder:
 
 ```bash
-npx wrangler login
-npx wrangler d1 create igc
+npx wrangler login   # one-off, before npm install
+./node_modules/.bin/wrangler d1 create igc
 ```
 
 Copy the `database_id` it prints into **`wrangler.toml`** (replace
@@ -32,10 +34,10 @@ Create the tables and load the current data (events + quotes), locally and in
 production:
 
 ```bash
-npx wrangler d1 execute igc --local  --file=./db/schema.sql
-npx wrangler d1 execute igc --local  --file=./db/seed.sql
-npx wrangler d1 execute igc --remote --file=./db/schema.sql
-npx wrangler d1 execute igc --remote --file=./db/seed.sql
+npm run db:schema:local
+npm run db:seed:local
+npm run db:schema:remote
+npm run db:seed:remote
 ```
 
 > The `DB` binding does **not** need a dashboard step — `wrangler.toml` declares
@@ -71,7 +73,7 @@ git push            # if the project only builds `main`, merge backend -> main f
 
 Do **not** run `wrangler deploy` (that's for standalone Workers and will error
 with "Missing entry-point"). If you ever deploy from the CLI, it's
-`npx wrangler pages deploy .`.
+`npm run deploy`.
 
 After this build finishes, the project is a Worker-with-Functions. Quick check:
 
@@ -119,8 +121,7 @@ Follow the header comments in **`apps-script/rsvp.gs`**:
    header *text*, not position, so on an existing sheet just insert the two
    columns anywhere — Sheets shifts the old rows for you. A legacy `Name` column
    keeps being filled with the combined "first last", so you can keep or delete
-   it. Run `db/migration-rsvp-names.sql` to add the columns in D1 and split the
-   names already stored.
+   it. (`db/schema.sql` already declares the columns.)
 4. Deploy → New deployment → **Web app**, execute as **you**, access **Anyone**.
 5. Copy the `/exec` URL into the `APPS_SCRIPT_URL` secret from step 4.
 
@@ -142,8 +143,8 @@ metadata lives in the `photos` table in D1.
    re-run; it uses `IF NOT EXISTS`):
 
    ```bash
-   npx wrangler d1 execute igc --local  --file=./db/schema.sql
-   npx wrangler d1 execute igc --remote --file=./db/schema.sql
+   npm run db:schema:local
+   npm run db:schema:remote
    ```
 
 That is all the setup. The endpoints come with the next deploy:
@@ -163,17 +164,14 @@ A public page at **`/links`** showing a one-tap list of buttons (Instagram, the
 Facebook group, gatherings, email), edited from the admin page's **Links** tab.
 It is the link to put in an Instagram bio.
 
-1. **Table.** Run the migration once per database. It creates the `links` table
-   and, only if the table is empty, seeds the four links already in the site
-   footer so the page isn't blank on day one:
+1. **Table.** `db/schema.sql` declares the `links` table; applying the schema
+   creates it if it isn't there yet (every statement is `IF NOT EXISTS`, so
+   re-running is safe and leaves existing rows alone):
 
    ```bash
-   npx wrangler d1 execute igc --local  --file=./db/migration-links.sql
-   npx wrangler d1 execute igc --remote --file=./db/migration-links.sql
+   npm run db:schema:local
+   npm run db:schema:remote
    ```
-
-   (The same table is in `db/schema.sql` for fresh databases; the migration is
-   safe to re-run.)
 2. **Nothing else.** No bindings, no secrets — it uses the existing `DB`.
 
 The endpoints come with the deploy:
@@ -192,11 +190,11 @@ A signup form on the home page and the /links page writes to D1 and mirrors to a
 **second** Google Sheet (separate from the RSVP one). People opt out through a
 personal link in your emails, or from `/unsubscribe`.
 
-1. **Table.** Run the migration once per database:
+1. **Table.** `db/schema.sql` declares the `subscribers` table; apply the schema:
 
    ```bash
-   npx wrangler d1 execute igc --local  --file=./db/migration-subscribers.sql
-   npx wrangler d1 execute igc --remote --file=./db/migration-subscribers.sql
+   npm run db:schema:local
+   npm run db:schema:remote
    ```
 
 2. **Sheet + Apps Script.** Create a NEW spreadsheet for the newsletter, then
@@ -280,7 +278,7 @@ Previous deployments stay as one-click rollbacks.
 ## Local development
 
 ```bash
-npx wrangler pages dev .
+npm run dev
 ```
 
 This serves the site with the Functions and a **local** copy of D1 (seeded in
@@ -302,12 +300,3 @@ node tools/check-static-hero.mjs
 CI runs it on every push and PR. It matters because the failure is silent: edit
 the hero copy in `data.js`, forget `index.html`, and the site looks perfect
 while Google reads the old words.
-
-## After the database is proven
-
-`events.json` is no longer read by the site (the bundle now fetches
-`/api/events`). Once you're happy the database is working, `events.json` can be
-deleted. The three original quotes still live in `index.html` as a **fallback**
-(shown only if `/api/quotes` fails) and have also been seeded into the database;
-once the database is proven, that fallback array can be removed from the bundle
-too — see the `voices:` line in the template blob.

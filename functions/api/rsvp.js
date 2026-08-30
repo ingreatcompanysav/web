@@ -4,7 +4,7 @@
 //   2. Insert the RSVP into D1.
 //   3. Mirror the row to the Google Sheet via the Apps Script web app.
 //      Sheet failures do NOT fail the request (the row is safe in D1).
-import { json, splitName } from '../_shared/db.js';
+import { json } from '../_shared/db.js';
 import { verifyTurnstile, postToAppsScript } from '../_shared/integrations.js';
 
 // Mirrors one RSVP into the RSVP sheet. Failures are non-fatal by design.
@@ -19,11 +19,8 @@ export async function onRequestPost({ request, env }) {
     return json({ ok: false, error: 'invalid_json' }, 400);
   }
 
-  // The form posts firstName/lastName (matching the newsletter signup). A bare
-  // `name` is still accepted and split, so a cached older page keeps working.
-  let firstName = String(body.firstName || '').trim();
-  let lastName = String(body.lastName || '').trim();
-  if (!firstName && body.name) ({ firstName, lastName } = splitName(body.name));
+  const firstName = String(body.firstName || '').trim();
+  const lastName = String(body.lastName || '').trim();
   if (!firstName) return json({ ok: false, error: 'name_required' }, 400);
 
   // `name` stays the combined value the Sheet's Name column and the CSV use.

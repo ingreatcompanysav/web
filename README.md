@@ -9,13 +9,13 @@ everything from a browser admin, gated by **Cloudflare Access**.
 
 | Path | What it is |
 | --- | --- |
-| `index.html` | The whole public site. Fonts, logos, styles and scripts inlined. It fetches `/api/events` and `/api/quotes` at load, and shows an RSVP form on each gathering. |
+| `index.html` | The public site's entry point — a static hero for crawlers, then `assets/js/app.js` takes over. Fetches `/api/events`, `/api/quotes` and `/api/photos`, and shows an RSVP form on each gathering. |
 | `admin.html` | The editor for gatherings, quotes and RSVPs. **Deployed, but locked behind Cloudflare Access** — only the two editors' emails can open it. |
 | `functions/` | The `/api/*` endpoints (Pages Functions) that read and write the database. |
 | `db/` | `schema.sql` (tables) and `seed.sql` (initial data). |
-| `apps-script/rsvp.gs` | The Google Apps Script that copies each RSVP into a Google Sheet. |
+| `package.json` | Pins the `wrangler` CLI. Dev-only — nothing here is served to the browser. |
+| `apps-script/` | The Google Apps Scripts that mirror RSVPs and newsletter signups into Google Sheets. |
 | `wrangler.toml` | Declares the D1 binding (needed for local dev and the build). |
-| `events.json` | The original calendar file. **No longer read by the site** — kept until the database is proven, then delete. |
 
 ## First-time setup
 
@@ -23,18 +23,16 @@ See **[SETUP.md](SETUP.md)** — the one-time runbook for creating the database,
 binding it, locking the admin with Access, wiring Turnstile, and connecting the
 Google Sheet. You only do that once.
 
-## About `index.html` (heads up before editing it)
+## How the site is put together
 
-`index.html` is not hand-written HTML — it's a **compiled bundle**: the real page
-(markup + styles + app logic) lives in a JSON `<script type="__bundler/template">`
-blob on line 384, and fonts/images live in a manifest blob on line 372. A loader
-reassembles the page in the browser. So you can't just edit the visible HTML.
+No build step and no framework: Cloudflare Pages serves the files in this repo
+exactly as they are.
 
-Hand-patched into that bundle: a mobile-responsive `<style>` block; the app now
-fetches `/api/events` and `/api/quotes` (with the original data kept as a
-fallback); and a self-contained **RSVP modal** (search the blob for
-`igcOpenRSVP`). The one thing you'll likely touch by hand is the **Turnstile
-site key** — search `index.html` for `REPLACE_WITH_TURNSTILE_SITE_KEY`.
+| Layer | Where |
+| --- | --- |
+| Markup | `index.html` (static hero for crawlers), `links.html`, `unsubscribe.html`, `404.html` |
+| Styles | `assets/css/` — `tokens.css` (design tokens), `base.css`, `components.css` |
+| App | `assets/js/app.js` renders the hash-routed views; `api.js` talks to the backend |
 
 ## Day-to-day: editing the site
 
@@ -72,6 +70,6 @@ Previous deployments stay as one-click rollbacks.
 
 ## Photos
 
-In a gathering's `note` field you can paste an image URL instead of a
-description; put photos in the repo (e.g. `/photos/dinner.jpg`) and reference
-them there.
+Upload them in the admin — **Photos** tab for the rotating hero/gallery/join
+images, or the image field on a gathering. They go to the R2 bucket and are
+served from `/img/<key>`; nothing needs to be committed to the repo.

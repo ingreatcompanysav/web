@@ -1,14 +1,14 @@
-// Backend data access. Mirrors the original bundle: fetch /api/events and
-// /api/quotes, fall back to the static arrays when the API is unavailable
-// (e.g. previewing the static files without the Pages Functions runtime).
-import { FALLBACK_EVENTS, FALLBACK_VOICES } from './data.js';
+// Backend data access: /api/events, /api/quotes, /api/photos.
+//
+// Every loader degrades to empty rather than to invented content. The views
+// render a real empty state for that; a fabricated gathering would be worse
+// than a blank calendar, because someone would show up to it.
 
 async function getJson(url) {
   try {
     const r = await fetch(url, { headers: { accept: 'application/json' } });
     if (!r.ok) return null;
-    const d = await r.json();
-    return Array.isArray(d) && d.length ? d : null;
+    return await r.json();
   } catch {
     return null;
   }
@@ -16,15 +16,17 @@ async function getJson(url) {
 
 export async function loadEvents() {
   const d = await getJson('/api/events');
-  return d || FALLBACK_EVENTS;
+  return Array.isArray(d) ? d : [];
 }
 
 // Random 3 quotes per visit, mapped into the shape the Quote card expects.
 export async function loadVoices() {
   const d = await getJson('/api/quotes');
-  const pool = d
-    ? d.map(q => ({ tone: q.tone, name: q.name, detail: q.detail, quote: q.body, monogram: q.monogram, avatar: q.avatar }))
-    : FALLBACK_VOICES.slice();
+  if (!Array.isArray(d)) return [];
+  const pool = d.map((q) => ({
+    tone: q.tone, name: q.name, detail: q.detail,
+    quote: q.body, monogram: q.monogram, avatar: q.avatar,
+  }));
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -36,13 +38,7 @@ export async function loadVoices() {
 // hero/join for this visit (that's the "rotation") and pass gallery through
 // as an array. Empty slots fall back to the baked-in images in app.js.
 export async function loadPhotos() {
-  let raw = {};
-  try {
-    const r = await fetch('/api/photos', { headers: { accept: 'application/json' } });
-    if (r.ok) raw = await r.json();
-  } catch {
-    raw = {};
-  }
+  const raw = (await getJson('/api/photos')) || {};
   const pick = (arr) => (Array.isArray(arr) && arr.length
     ? arr[Math.floor(Math.random() * arr.length)].url
     : null);

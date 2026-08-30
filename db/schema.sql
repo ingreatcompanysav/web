@@ -101,10 +101,15 @@ CREATE TABLE IF NOT EXISTS links (
   updated_at  TEXT    DEFAULT (datetime('now'))
 );
 
--- Newsletter signups. See db/migration-subscribers.sql for the full notes:
--- email is unique and lowercased, `token` powers the one-click unsubscribe link,
--- and unsubscribing flips `status` rather than deleting the row (a suppression
--- record, so a later import can't silently re-add someone).
+-- Newsletter signups.
+--   * email is stored lowercased and trimmed, and is UNIQUE — re-subscribing an
+--     address updates the existing row instead of creating a duplicate.
+--   * token is the unsubscribe credential: 128 random bits that make a
+--     one-click opt-out link work with no login and resist brute force. It is
+--     never returned by a public endpoint.
+--   * status is 'subscribed' | 'unsubscribed'. Unsubscribing flips the status
+--     rather than deleting the row, so the suppression record survives a later
+--     re-import and can't silently re-add someone.
 CREATE TABLE IF NOT EXISTS subscribers (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   first_name      TEXT NOT NULL,

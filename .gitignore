@@ -3,9 +3,6 @@
 # OS cruft
 .DS_Store
 
-# Local launcher — never deployed (the local editor is retired; kept for reference)
-start-admin.command
-
 # Local dev secrets for `wrangler pages dev` — never commit
 .dev.vars
 
@@ -15,3 +12,6 @@ start-admin.command
 # npm — the pinned wrangler CLI (package.json). Never deployed; Pages serves
 # the repo root as-is, so this must not reach the site.
 node_modules/
+
+# Impeccable
+.impeccable/*

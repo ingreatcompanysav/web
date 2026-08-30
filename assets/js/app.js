@@ -225,16 +225,19 @@ function homeView(state) {
         ${sectionHeading({ eyebrow: "What's coming up", title: 'Three ways to spend a', script: 'week', description: 'Coffee, long dinners, and slow Sunday mornings. Come to one, come to all of them.' })}
         ${button({ label: 'See All Gatherings →', variant: 'ghost', action: 'go-gatherings' })}
       </div>
-      <div class="grid-3 mt-8">${featured.map((g) => eventCard(g)).join('')}</div>
+      ${featured.length
+        ? `<div class="grid-3 mt-8">${featured.map((g) => eventCard(g)).join('')}</div>`
+        : `<p class="prose-lead mt-8" style="text-align:center;margin-inline:auto">Nothing on the calendar this very minute — follow along on Instagram for the next last-minute plan.</p>`}
     </div>
   </section>
 
+  ${state.voices.length ? `
   <section class="section section--sunk">
     <div class="container">
       ${sectionHeading({ center: true, size: 'xl', eyebrow: 'In their words', title: 'Women who came alone', script: 'once' })}
       <div class="grid-3 mt-8">${state.voices.map(quoteCard).join('')}</div>
     </div>
-  </section>
+  </section>` : ''}
 
   <section class="section section--card">
     <div class="container newsletter">

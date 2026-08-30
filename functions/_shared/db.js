@@ -11,9 +11,6 @@ export const json = (data, status = 200, extraHeaders = {}) =>
     },
   });
 
-export const methodNotAllowed = (allow) =>
-  new Response('Method Not Allowed', { status: 405, headers: { allow } });
-
 // --- events -----------------------------------------------------------------
 // Public shape must match the old events.json exactly (keys the bundle reads).
 export const eventToPublic = (r) => ({
@@ -196,14 +193,3 @@ export const rsvpToAdmin = (r) => ({
   syncedSheet: r.synced_sheet,
   createdAt: r.created_at,
 });
-
-// Splits a single free-text name into first/last on the FIRST space, so
-// "Mary Anne Smith" becomes ("Mary", "Anne Smith"). Used for older clients that
-// still post a combined `name`.
-export const splitName = (full) => {
-  const t = String(full || '').trim();
-  const i = t.indexOf(' ');
-  return i === -1
-    ? { firstName: t, lastName: '' }
-    : { firstName: t.slice(0, i), lastName: t.slice(i + 1).trim() };
-};
