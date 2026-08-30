@@ -1,7 +1,7 @@
 // In Great Company — client app. Recreates the original SPA (routes: home,
 // gatherings, event, privacy) as modular, data-driven views.
 import { loadEvents, loadVoices, loadPhotos } from './api.js';
-import { AVATAR_BY_NAME, LINKS } from './data.js';
+import { AVATAR_BY_NAME, LINKS, HERO, NAV } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
 import { mountSignup } from './signup.js';
 
@@ -152,7 +152,6 @@ function quoteCard(v) {
 }
 
 /* -------------------------------------------------------------- chrome */
-const NAV = [['home', 'Home'], ['gatherings', 'Gatherings']];
 
 function navBar(active) {
   const links = NAV.map(([r, l]) =>
@@ -196,14 +195,14 @@ function homeView(state) {
   <section class="hero">
     <div class="hero__grid">
       <div>
-        <div class="igc-eyebrow">A women's social group · Savannah, GA</div>
-        <h1 class="hero__title">Every woman deserves a place to<br>${scriptWord('belong.', true)}</h1>
-        <p class="hero__lead">New to Savannah, starting a new chapter, or just craving real friendship? There's a seat here for you. No pressure, no judgment, just women showing up for each other.</p>
+        <div class="igc-eyebrow">${esc(HERO.eyebrow)}</div>
+        <h1 class="hero__title">${esc(HERO.titleLead)}<br>${scriptWord(HERO.titleScript, true)}</h1>
+        <p class="hero__lead">${esc(HERO.lead)}</p>
         <div class="hero__actions">
-          ${button({ label: "See What's Coming Up", size: 'lg', action: 'go-gatherings' })}
+          ${button({ label: HERO.cta, size: 'lg', action: 'go-gatherings' })}
         </div>
       </div>
-      <div class="hero__media"><img src="${esc(state.photos.hero || '/assets/img/photo-hero.jpg')}" alt="In Great Company members laughing together on a sailboat in Savannah"></div>
+      <div class="hero__media"><img src="${esc(state.photos.hero || HERO.image)}" alt="${esc(HERO.imageAlt)}"></div>
     </div>
   </section>
 
@@ -495,6 +494,72 @@ function buyCurrent() {
 window.addEventListener('hashchange', () => { closeRSVP(); render(); });
 window.addEventListener('scroll', syncNavScroll, { passive: true });
 
+/* --------------------------------------------------------- structured data */
+/* Gatherings arrive from /api/events at runtime, so their Event markup has to
+   be injected rather than shipped in the HTML. Google reads JSON-LD out of the
+   rendered DOM, so this still qualifies for event rich results — it just lands
+   in the second, render pass rather than the first. */
+const ORIGIN = 'https://ingreatcompanysav.com';
+
+const absolute = (u) => (!u ? '' : /^https?:\/\//.test(u) ? u : ORIGIN + (u.startsWith('/') ? '' : '/') + u);
+
+// "6:30pm" -> "18:30". Emitted with no UTC offset, which schema.org reads as
+// the event's local time — that sidesteps having to know whether a given date
+// falls in EDT or EST. An unparseable time degrades to a date-only startDate,
+// which is still valid.
+function startDateOf(g) {
+  const m = /^\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?\s*$/i.exec(g.time || '');
+  if (!m) return g.eventDate;
+  const h = (+m[1] % 12) + (m[3].toLowerCase() === 'p' ? 12 : 0);
+  return `${g.eventDate}T${String(h).padStart(2, '0')}:${m[2] || '00'}:00`;
+}
+
+function eventSchema(g) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: g.title,
+    startDate: startDateOf(g),
+    eventStatus: 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    description: g.blurb || g.detail || '',
+    image: absolute(g.image) || `${ORIGIN}/assets/img/og-card.jpg`,
+    url: `${ORIGIN}/#event/${g.id}`,
+    // The venue is written for humans ("A porch on Jones St"), so it goes in
+    // the Place name; only the city is claimed as an address, because only the
+    // city is actually known.
+    location: {
+      '@type': 'Place',
+      name: g.place || 'Savannah, Georgia',
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Savannah',
+        addressRegion: 'GA',
+        addressCountry: 'US',
+      },
+    },
+    organizer: { '@type': 'Organization', name: 'In Great Company', url: `${ORIGIN}/` },
+    offers: {
+      '@type': 'Offer',
+      price: g.price || 0,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: g.stripeUrl || `${ORIGIN}/#event/${g.id}`,
+    },
+  };
+}
+
+// Undated gatherings are skipped: startDate is required, and a guessed one is
+// worse than no markup at all.
+function syncEventSchema(events) {
+  const upcoming = events.filter((g) => !g.past && g.eventDate);
+  const existing = document.getElementById('event-schema');
+  if (!upcoming.length) { if (existing) existing.remove(); return; }
+  const el = existing || document.head.appendChild(
+    Object.assign(document.createElement('script'), { type: 'application/ld+json', id: 'event-schema' }));
+  el.textContent = JSON.stringify(upcoming.map(eventSchema));
+}
+
 /* ------------------------------------------------------------- bootstrap */
 async function init() {
   render(); // paint immediately with empty data (fallbacks fill in)
@@ -504,6 +569,7 @@ async function init() {
   state.photos = photos;
   state.loaded = true;
   render(); // re-render with data
+  syncEventSchema(events);
 }
 
 init();

@@ -52,9 +52,71 @@
   <link rel="stylesheet" href="/assets/css/base.css">
   <link rel="stylesheet" href="/assets/css/components.css">
   <link rel="stylesheet" href="/assets/css/signup.css">
+  <!-- Who we are, in a form search engines can read. Organization rather than
+       LocalBusiness: there is no storefront, no hours, no street address to
+       claim. sameAs is the part that earns its keep — it ties this domain
+       to the Instagram and Facebook profiles as a single entity. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "In Great Company",
+    "url": "https://ingreatcompanysav.com/",
+    "logo": "https://ingreatcompanysav.com/assets/img/logo-cream.png",
+    "image": "https://ingreatcompanysav.com/assets/img/og-card.jpg",
+    "description": "A women's social group in Savannah, Georgia. New to town, starting a new chapter, or craving real friendship — there's a seat here for you.",
+    "email": "contact@ingreatcompanysav.com",
+    "areaServed": {
+      "@type": "City",
+      "name": "Savannah",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Savannah",
+        "addressRegion": "GA",
+        "addressCountry": "US"
+      }
+    },
+    "sameAs": [
+      "https://www.instagram.com/ingreatcompanysav",
+      "https://www.facebook.com/groups/ingreatcompanysav"
+    ]
+  }
+  </script>
 </head>
 <body>
-  <div id="app"></div>
+  <!-- app.js replaces #app wholesale on its first render, so everything below
+       is a first paint, not live markup. It earns its place twice: a crawler
+       that does not execute JS still sees a real <h1> and the intro copy, and
+       a slow connection shows the headline instead of a blank page.
+
+       KEEP IN SYNC with navBar() and homeView()'s hero in assets/js/app.js.
+       Deliberately the hero only — the less mirrored here, the less can
+       drift. The nav is included so the JS render does not shove the hero
+       down a nav-height and cost us the layout shift. -->
+  <div id="app">
+    <nav class="nav" id="nav">
+      <button class="nav__logo" data-nav="home" aria-label="In Great Company — home"><img src="/assets/img/logo-cream.png" alt="In Great Company"></button>
+      <div class="nav__links">
+        <button class="nav__link is-active" data-nav="home">Home</button>
+        <button class="nav__link" data-nav="gatherings">Gatherings</button>
+      </div>
+    </nav>
+    <main id="view">
+      <section class="hero">
+        <div class="hero__grid">
+          <div>
+            <div class="igc-eyebrow">A women's social group · Savannah, GA</div>
+            <h1 class="hero__title">Every woman deserves a place to<br><span class="igc-script igc-script--xl">belong.</span></h1>
+            <p class="hero__lead">New to Savannah, starting a new chapter, or just craving real friendship? There's a seat here for you. No pressure, no judgment, just women showing up for each other.</p>
+            <div class="hero__actions">
+              <button type="button" class="btn btn--default btn--lg" data-action="go-gatherings">See What's Coming Up</button>
+            </div>
+          </div>
+          <div class="hero__media"><img src="/assets/img/photo-hero.jpg" alt="In Great Company members laughing together on a sailboat in Savannah"></div>
+        </div>
+      </section>
+    </main>
+  </div>
   <script type="module" src="/assets/js/app.js?v=2"></script>
 </body>
 </html>
