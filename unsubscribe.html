@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unsubscribe — In Great Company</title>
+  <meta name="description" content="Unsubscribe from the In Great Company newsletter.">
+  <!-- Not a page for search results: it is only ever reached from a newsletter. -->
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="icon" href="/assets/img/logo-cream.png" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/img/logo-cream.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Montserrat:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/base.css">
+  <style>
+    /* A single narrow card. Shares the site's tokens, none of its layout. */
+    body{
+      min-height:100dvh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      background:var(--wash-golden);
+      background-attachment:fixed;
+      padding:var(--gutter);
+    }
+    .u-card{
+      width:100%;
+      max-width:480px;
+      background:var(--surface-card);
+      border:var(--border-w) solid var(--border-hairline);
+      border-radius:var(--radius-lg);
+      box-shadow:var(--shadow-lg);
+      padding:clamp(28px,5vw,44px);
+      text-align:center;
+      animation:igcRise var(--dur-slow) var(--ease-soft) both;
+    }
+    .u-logo{width:112px;height:auto;margin:0 auto var(--space-6)}
+    .u-title{
+      font-family:var(--font-display);
+      font-size:var(--text-display-s);
+      font-weight:var(--weight-medium);
+      color:var(--text-strong);
+      margin:0 0 var(--space-3);
+    }
+    .u-lead{
+      font-size:var(--text-body-m);
+      line-height:var(--leading-body);
+      color:var(--text-muted);
+      margin:0 0 var(--space-6);
+    }
+    .u-label{
+      display:block;
+      text-align:left;
+      font-size:var(--text-body-s);
+      font-weight:var(--weight-semibold);
+      color:var(--text-strong);
+      margin-bottom:var(--space-2);
+    }
+    .u-input{
+      width:100%;
+      font-size:var(--text-body-m);
+      color:var(--text-strong);
+      background:var(--surface-sunk);
+      border:var(--border-w) solid var(--border-soft);
+      border-radius:var(--radius-sm);
+      padding:12px 13px;
+      margin-bottom:var(--space-4);
+    }
+    .u-input::placeholder{color:var(--text-subtle)}
+    .u-input:focus-visible{border-color:var(--border-focus);box-shadow:var(--focus-ring);outline:none}
+    .u-ts{display:flex;justify-content:center;margin-bottom:var(--space-4);min-height:0}
+    .u-btn{
+      width:100%;
+      font-size:var(--text-body-m);
+      font-weight:var(--weight-semibold);
+      background:var(--brand-primary);
+      color:var(--ink-on-rose);
+      border:var(--border-w) solid transparent;
+      border-radius:var(--radius-pill);
+      padding:14px 28px;
+      cursor:pointer;
+      transition:var(--transition-base);
+    }
+    .u-btn:hover:not(:disabled){background:var(--brand-primary-hover);transform:var(--hover-lift)}
+    .u-btn:active:not(:disabled){transform:var(--press-scale)}
+    .u-btn:disabled{background:var(--state-disabled-bg);color:var(--state-disabled-fg);cursor:not-allowed}
+    .u-btn:focus-visible{box-shadow:var(--focus-ring);outline:none}
+    .u-fine{
+      font-size:var(--text-caption);
+      color:var(--text-muted);
+      margin:var(--space-5) 0 0;
+    }
+    .u-err{
+      font-size:var(--text-body-s);
+      color:var(--brand-on-dark);
+      background:rgba(239,46,159,.12);
+      border-radius:var(--radius-sm);
+      padding:10px 12px;
+      margin:var(--space-4) 0 0;
+    }
+  </style>
+</head>
+<body>
+  <main class="u-card">
+    <img class="u-logo" src="/assets/img/logo-cream.png" alt="In Great Company">
+    <div id="view">
+      <p class="u-lead" aria-live="polite">Loading…</p>
+    </div>
+  </main>
+  <script type="module" src="/assets/js/unsubscribe.js"></script>
+</body>
+</html>

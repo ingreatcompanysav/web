@@ -63,7 +63,14 @@ function build() {
         '<button type="button" data-igc="close" aria-label="Close" style="border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:' + INK + '">&times;</button>' +
       '</div>' +
       '<form data-igc="form" style="padding:16px 22px 22px;display:flex;flex-direction:column;gap:12px">' +
-        field('name', 'Your name', '<input required name="name" type="text" autocomplete="name" style="' + inp() + '">') +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
+          '<div style="flex:1 1 140px;min-width:0">' +
+            field('firstName', 'First name', '<input required name="firstName" type="text" autocomplete="given-name" style="' + inp() + '">') +
+          '</div>' +
+          '<div style="flex:1 1 140px;min-width:0">' +
+            field('lastName', 'Last name', '<input name="lastName" type="text" autocomplete="family-name" style="' + inp() + '">') +
+          '</div>' +
+        '</div>' +
         field('email', 'Email <span style=\'font-weight:400;opacity:.6\'>(optional)</span>', '<input name="email" type="email" autocomplete="email" style="' + inp() + '">') +
         field('guests', 'How many of you?', '<input name="guests" type="number" min="1" max="6" step="1" value="1" style="' + inp() + '">') +
         field('note', 'Anything to add? <span style=\'font-weight:400;opacity:.6\'>(optional)</span>', '<textarea name="note" rows="2" style="' + inp() + 'resize:vertical"></textarea>') +
@@ -106,7 +113,7 @@ export function openRSVP(opts) {
   el.querySelector('[data-igc="submit"]').disabled = false;
   el.style.display = 'flex';
   el.setAttribute('aria-hidden', 'false');
-  setTimeout(() => { const n = el.querySelector('[name="name"]'); if (n) n.focus(); }, 30);
+  setTimeout(() => { const n = el.querySelector('[name="firstName"]'); if (n) n.focus(); }, 30);
 
   if (hasTurnstile) {
     tokenEl.innerHTML = '';
@@ -138,8 +145,9 @@ export const closeRSVP = close;
 function submit(e) {
   e.preventDefault();
   const form = e.target;
-  const name = (form.name.value || '').trim();
-  if (!name) { setMsg('Please add your name.'); return; }
+  const val = (k) => (form.querySelector('[name="' + k + '"]').value || '').trim();
+  const firstName = val('firstName');
+  if (!firstName) { setMsg('Please add your first name.'); return; }
   if (hasTurnstile && !token) { setMsg('Please complete the “I’m human” check.'); return; }
   const btn = el.querySelector('[data-igc="submit"]');
   btn.disabled = true; setMsg('Sending…', true);
@@ -148,10 +156,11 @@ function submit(e) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       eventId: current.eventId || '',
-      name,
-      email: (form.email.value || '').trim(),
-      guests: parseInt(form.guests.value, 10) || 1,
-      note: (form.note.value || '').trim(),
+      firstName,
+      lastName: val('lastName'),
+      email: val('email'),
+      guests: parseInt(val('guests'), 10) || 1,
+      note: val('note'),
       turnstileToken: token
     })
   })

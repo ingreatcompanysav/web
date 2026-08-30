@@ -48,6 +48,8 @@
     padding:14px 18px;cursor:pointer;border-bottom:3px solid transparent}
   .tab:hover{color:var(--cream)}
   .tab.active{color:var(--cream);border-bottom-color:var(--rose);font-weight:600}
+  .subs-actions{white-space:nowrap;display:flex;gap:6px;justify-content:flex-end}
+  tr.inactive td{opacity:.6}
   .panel{display:none;padding-top:24px}
   .panel.active{display:block}
 
@@ -191,7 +193,7 @@
   <div class="wrap">
     <div>
       <h1>In Great Company — Admin</h1>
-      <div class="sub">Gatherings, quotes, links &amp; RSVPs</div>
+      <div class="sub">Gatherings, quotes, links, RSVPs &amp; newsletter</div>
     </div>
     <div class="userbox">
       <span class="pill" id="whoami">Secured by Cloudflare Access</span>
@@ -207,6 +209,7 @@
     <button class="tab" data-tab="photos">Photos</button>
     <button class="tab" data-tab="links">Links</button>
     <button class="tab" data-tab="rsvps">RSVPs</button>
+    <button class="tab" data-tab="subs">Newsletter</button>
   </div>
 </div>
 
@@ -323,6 +326,30 @@
       <span class="status grow" id="linksStatus"></span>
     </div>
     <div id="linksList"></div>
+  </section>
+
+  <!-- ============ NEWSLETTER ============ -->
+  <section class="panel" id="panel-subs">
+    <details class="help">
+      <summary>How this works</summary>
+      <ol>
+        <li>Everyone who signed up for the newsletter is listed here, newest first, and each one is also written to your newsletter Google Sheet.</li>
+        <li><b>Unsubscribed</b> people stay in the list on purpose — that's the record that stops them being added back by a later import. Don't email them.</li>
+        <li>People normally add themselves through the form and remove themselves through the link in your emails. When that isn't possible — a broken link, or an address you know shouldn't be here — use <b>Unsubscribe</b> on the row.</li>
+        <li><b>Delete</b> is for junk signups only. It wipes the row completely, which also drops the record that keeps them off the list, so that address could sign up again. For a real person, use Unsubscribe.</li>
+      </ol>
+    </details>
+    <div class="rsvp-controls">
+      <select id="subsFilter">
+        <option value="">Everyone</option>
+        <option value="subscribed">Subscribed only</option>
+        <option value="unsubscribed">Unsubscribed only</option>
+      </select>
+      <button id="reloadSubsBtn">Refresh</button>
+      <button class="ghost" id="subsCsvBtn">Download CSV</button>
+      <span class="status grow" id="subsStatus"></span>
+    </div>
+    <div id="subsTable"></div>
   </section>
 
 </div>
@@ -1286,7 +1313,8 @@ function renderRsvps(rows){
     return `<tr>
       <td>${escapeHtml(when)}</td>
       <td>${escapeHtml(ev)}</td>
-      <td>${escapeHtml(r.name||"")}</td>
+      <td>${escapeHtml(r.firstName||"")}</td>
+      <td>${escapeHtml(r.lastName||"")}</td>
       <td>${r.email?`<a href="mailto:${escapeAttr(r.email)}">${escapeHtml(r.email)}</a>`:""}</td>
       <td>${escapeHtml(String(r.guests||1))}</td>
       <td>${escapeHtml(r.note||"")}</td>
@@ -1294,7 +1322,7 @@ function renderRsvps(rows){
     </tr>`;
   }).join("");
   rsvpsTableEl.innerHTML = `<table class="rsvps">
-    <thead><tr><th>When</th><th>Gathering</th><th>Name</th><th>Email</th><th>Guests</th><th>Note</th><th>Sheet</th></tr></thead>
+    <thead><tr><th>When</th><th>Gathering</th><th>First name</th><th>Last name</th><th>Email</th><th>Guests</th><th>Note</th><th>Sheet</th></tr></thead>
     <tbody>${body}</tbody></table>`;
 }
 $("#reloadRsvpsBtn").addEventListener("click", loadRsvps);
@@ -1450,19 +1478,126 @@ photosListEl.addEventListener("click", (e)=>{
 });
 
 /* =========================================================================
+   NEWSLETTER SUBSCRIBERS
+   ========================================================================= */
+const subsTableEl = $("#subsTable");
+let subs = [];
+
+async function loadSubs(){
+  try{
+    setStatus("subsStatus","Loading…");
+    subs = await api("GET","/api/admin/subscribers");
+    renderSubs();
+    const live = subs.filter(s=>s.status==="subscribed").length;
+    setStatus("subsStatus", `${live} subscribed · ${subs.length-live} unsubscribed.`, "ok");
+  }catch(err){ setStatus("subsStatus","Couldn’t load: "+err.message,"warn"); }
+}
+function renderSubs(){
+  const filter = $("#subsFilter").value;
+  const rows = filter ? subs.filter(s=>s.status===filter) : subs;
+  if(!rows.length){
+    subsTableEl.innerHTML = '<div class="empty"><h2>No signups yet</h2><p>They’ll appear here as people join the newsletter.</p></div>';
+    return;
+  }
+  const body = rows.map(r=>{
+    const when = (r.createdAt||"").replace("T"," ").replace("Z","");
+    const off = r.status === "unsubscribed";
+    const badge = off
+      ? `<span class="badge off">unsubscribed</span>`
+      : `<span class="sync yes">subscribed</span>`;
+    const sync = r.syncedSheet ? '<span class="sync yes">Sheet ✓</span>' : '<span class="sync no">Sheet —</span>';
+    const name = [r.firstName, r.lastName].filter(Boolean).join(" ");
+    const toggle = off
+      ? `<button class="mini ghost" data-sub-resub="${r.id}" title="Put this address back on the list">Re-subscribe</button>`
+      : `<button class="mini ghost" data-sub-unsub="${r.id}" title="Take this address off the list">Unsubscribe</button>`;
+    return `<tr${off?' class="inactive"':''}>
+      <td>${escapeHtml(when)}</td>
+      <td>${escapeHtml(name)}</td>
+      <td><a href="mailto:${escapeAttr(r.email)}">${escapeHtml(r.email)}</a></td>
+      <td>${badge}</td>
+      <td>${escapeHtml(r.source||"")}</td>
+      <td>${sync}</td>
+      <td class="subs-actions">${toggle}<button class="mini ghost" data-sub-del="${r.id}" title="Delete this row entirely">✕</button></td>
+    </tr>`;
+  }).join("");
+  subsTableEl.innerHTML = `<table class="rsvps">
+    <thead><tr><th>When</th><th>Name</th><th>Email</th><th>Status</th><th>From</th><th>Sheet</th><th></th></tr></thead>
+    <tbody>${body}</tbody></table>`;
+}
+async function setSubStatus(id, status){
+  const s = subs.find(x=>x.id===id); if(!s) return;
+  const verb = status==="unsubscribed" ? "Unsubscribe" : "Re-subscribe";
+  if(!confirm(`${verb} ${s.email}?\n\nThis updates the newsletter Google Sheet too.`)) return;
+  try{
+    setStatus("subsStatus", verb+"…");
+    await api("PUT","/api/admin/subscribers/"+id, { status });
+    await loadSubs();
+  }catch(err){ setStatus("subsStatus", verb+" failed: "+err.message, "warn"); }
+}
+async function deleteSub(id){
+  const s = subs.find(x=>x.id===id); if(!s) return;
+  if(!confirm(`Delete ${s.email} completely?\n\nThis removes the row, so nothing stops them signing up again. To keep them off the list, use Unsubscribe instead.`)) return;
+  try{
+    setStatus("subsStatus","Deleting…");
+    await api("DELETE","/api/admin/subscribers/"+id);
+    await loadSubs();
+  }catch(err){ setStatus("subsStatus","Delete failed: "+err.message,"warn"); }
+}
+subsTableEl.addEventListener("click", e=>{
+  const t = e.target;
+  if(t.dataset.subUnsub !== undefined) return setSubStatus(+t.dataset.subUnsub, "unsubscribed");
+  if(t.dataset.subResub !== undefined) return setSubStatus(+t.dataset.subResub, "subscribed");
+  if(t.dataset.subDel   !== undefined) return deleteSub(+t.dataset.subDel);
+});
+$("#reloadSubsBtn").addEventListener("click", loadSubs);
+$("#subsFilter").addEventListener("change", renderSubs);
+$("#subsCsvBtn").addEventListener("click", ()=>{
+  const filter = $("#subsFilter").value;
+  const rows = filter ? subs.filter(s=>s.status===filter) : subs;
+  const head = ["Signed up","First name","Last name","Email","Status","From","Unsubscribed"];
+  // Neutralize spreadsheet formula injection the same way /api/admin/rsvps does:
+  // a cell starting with = + - @ (or tab/CR) is run as a formula by Excel and
+  // Sheets, and these values come from a public form.
+  const cell = v => {
+    let t = String(v==null?"":v);
+    if(/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+    return `"${t.replace(/"/g,'""')}"`;
+  };
+  const csv = [head.map(cell).join(",")].concat(
+    rows.map(r=>[r.createdAt,r.firstName,r.lastName,r.email,r.status,r.source,r.unsubscribedAt].map(cell).join(","))
+  ).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = "newsletter-subscribers.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+
+/* =========================================================================
    Tabs, save bar, status
    ========================================================================= */
 function setStatus(id, msg, kind){ const el=$("#"+id); if(!el) return; el.textContent=msg||""; el.className="status grow"+(kind?" "+kind:""); }
+
+// The tabs that hold unsaved, batch-saved state. photos/rsvps save immediately
+// and so have no entry here.
+const TAB_LABELS  = { events:"gathering", quotes:"quote", links:"link" };
+const TAB_SAVERS  = { events:()=>saveEvents(), quotes:()=>saveQuotes(), links:()=>saveLinks() };
+const TAB_LOADERS = { events:()=>loadEvents(), quotes:()=>loadQuotes(), links:()=>loadLinks() };
+const dirtyTabs = () => Object.keys(dirty).filter(t => dirty[t]);
+const plural = (n, noun) => `<b>${n}</b> ${noun}${n!==1?"s":""}`;
 
 function switchTab(tab){
   activeTab = tab;
   document.querySelectorAll(".tab").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
   document.querySelectorAll(".panel").forEach(p=> p.classList.remove("active"));
   $("#panel-"+tab).classList.add("active");
-  const showSave = (tab==="events"||tab==="quotes"||tab==="links");
+  // Keep the bar up on photos/rsvps when another tab still has unsaved work —
+  // hiding it is how that work used to disappear from view and get lost.
+  const showSave = !!TAB_SAVERS[tab] || dirtyTabs().length > 0;
   $("#savebar").style.display = showSave ? "" : "none";
   if(tab==="rsvps") loadRsvps();
   if(tab==="photos") loadPhotos();
+  if(tab==="subs")   loadSubs();
   updateSaveInfo();
   window.scrollTo({top:0});
 }
@@ -1470,36 +1605,45 @@ document.querySelectorAll(".tab").forEach(b=> b.addEventListener("click", ()=> s
 
 function updateSaveInfo(){
   const info = $("#saveInfo");
-  if(activeTab==="events"){
-    const n = events.length;
-    let errs=0; events.forEach((_,i)=> errs += Object.keys(validateEvent(i).errs).length);
-    let txt = `<b>${n}</b> gathering${n!==1?"s":""}`;
-    if(dirty.events) txt += " · unsaved changes";
-    if(errs) txt += ` · <span class="warnc">⚠ ${errs} to fix</span>`;
-    info.innerHTML = txt;
-  } else if(activeTab==="quotes"){
-    const n = quotes.length;
-    let errs=0; quotes.forEach((_,i)=> errs += Object.keys(validateQuote(i).errs).length);
-    let txt = `<b>${n}</b> quote${n!==1?"s":""}`;
-    if(dirty.quotes) txt += " · unsaved changes";
-    if(errs) txt += ` · <span class="warnc">⚠ ${errs} to fix</span>`;
-    info.innerHTML = txt;
-  } else if(activeTab==="links"){
-    const n = links.length;
-    let errs=0; links.forEach((_,i)=> errs += Object.keys(validateLink(i).errs).length);
-    let txt = `<b>${n}</b> link${n!==1?"s":""}`;
-    if(dirty.links) txt += " · unsaved changes";
-    if(errs) txt += ` · <span class="warnc">⚠ ${errs} to fix</span>`;
-    info.innerHTML = txt;
+  const counts = {
+    events: ()=>({ txt: plural(events.length,"gathering"), errs: events.reduce((a,_,i)=> a+Object.keys(validateEvent(i).errs).length, 0) }),
+    quotes: ()=>({ txt: plural(quotes.length,"quote"),     errs: quotes.reduce((a,_,i)=> a+Object.keys(validateQuote(i).errs).length, 0) }),
+    links:  ()=>({ txt: plural(links.length,"link"),       errs: links.reduce((a,_,i)=> a+Object.keys(validateLink(i).errs).length, 0) }),
+  };
+  const parts = [];
+  if(counts[activeTab]){
+    const { txt, errs } = counts[activeTab]();
+    parts.push(txt);
+    if(dirty[activeTab]) parts.push("unsaved changes");
+    if(errs) parts.push(`<span class="warnc">⚠ ${errs} to fix</span>`);
   }
+  // Unsaved work on a tab you are not looking at is the easy thing to lose, so
+  // name it here — Save acts on every dirty tab, not just the visible one.
+  const others = dirtyTabs().filter(t => t !== activeTab);
+  if(others.length){
+    const names = others.map(t => TAB_LABELS[t]+"s").join(" and ");
+    parts.push(`<span class="warnc">unsaved ${names} too</span>`);
+  }
+  info.innerHTML = parts.join(" · ");
 }
-$("#saveBtn").addEventListener("click", ()=>{ if(activeTab==="events") saveEvents(); else if(activeTab==="quotes") saveQuotes(); else if(activeTab==="links") saveLinks(); });
-$("#discardBtn").addEventListener("click", ()=>{
-  if(activeTab==="events"){ if(dirty.events && !confirm("Discard unsaved gathering changes?")) return; loadEvents(); }
-  else if(activeTab==="quotes"){ if(dirty.quotes && !confirm("Discard unsaved quote changes?")) return; loadQuotes(); }
-  else if(activeTab==="links"){ if(dirty.links && !confirm("Discard unsaved link changes?")) return; loadLinks(); }
+
+// One global save bar => one global save. Saving only the visible tab is what
+// silently dropped a deleted gathering when the client saved from Quotes.
+$("#saveBtn").addEventListener("click", async ()=>{
+  const todo = dirtyTabs();
+  if(!todo.length && TAB_SAVERS[activeTab]) todo.push(activeTab); // force-save the visible tab
+  for(const t of todo){ await TAB_SAVERS[t](); }
+  updateSaveInfo();
 });
-window.addEventListener("beforeunload", e=>{ if(dirty.events||dirty.quotes||dirty.links){ e.preventDefault(); e.returnValue=""; } });
+$("#discardBtn").addEventListener("click", async ()=>{
+  const todo = dirtyTabs();
+  if(!todo.length){ if(TAB_LOADERS[activeTab]) await TAB_LOADERS[activeTab](); return; }
+  const names = todo.map(t => TAB_LABELS[t]+" changes").join(" and ");
+  if(!confirm(`Discard unsaved ${names}?`)) return;
+  for(const t of todo){ await TAB_LOADERS[t](); }
+  updateSaveInfo();
+});
+window.addEventListener("beforeunload", e=>{ if(dirtyTabs().length){ e.preventDefault(); e.returnValue=""; } });
 
 /* ---- Category datalist ---- */
 $("#catlist").innerHTML = ["Slow morning","Ticketed","Outdoors","Free","Social"].map(c=>`<option value="${c}">`).join("");

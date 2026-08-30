@@ -114,6 +114,13 @@ Follow the header comments in **`apps-script/rsvp.gs`**:
 1. Open the Google Sheet that should collect RSVPs → Extensions → Apps Script.
 2. Paste in `apps-script/rsvp.gs`; add a header row to the sheet.
 3. Script properties → add `RSVP_TOKEN` = the same value as `APPS_SCRIPT_TOKEN`.
+4. The RSVP form collects **first and last name** (matching the newsletter), so
+   the sheet wants `First name` and `Last name` columns. The script matches on
+   header *text*, not position, so on an existing sheet just insert the two
+   columns anywhere — Sheets shifts the old rows for you. A legacy `Name` column
+   keeps being filled with the combined "first last", so you can keep or delete
+   it. Run `db/migration-rsvp-names.sql` to add the columns in D1 and split the
+   names already stored.
 4. Deploy → New deployment → **Web app**, execute as **you**, access **Anyone**.
 5. Copy the `/exec` URL into the `APPS_SCRIPT_URL` secret from step 4.
 
@@ -179,12 +186,62 @@ The endpoints come with the deploy:
 If the API is ever unreachable, the page falls back to the four links hard-coded
 in `assets/js/links.js`, so it never renders empty.
 
+## 6d. Newsletter — signups, the second Sheet, and opt-out
+
+A signup form on the home page and the /links page writes to D1 and mirrors to a
+**second** Google Sheet (separate from the RSVP one). People opt out through a
+personal link in your emails, or from `/unsubscribe`.
+
+1. **Table.** Run the migration once per database:
+
+   ```bash
+   npx wrangler d1 execute igc --local  --file=./db/migration-subscribers.sql
+   npx wrangler d1 execute igc --remote --file=./db/migration-subscribers.sql
+   ```
+
+2. **Sheet + Apps Script.** Create a NEW spreadsheet for the newsletter, then
+   follow the setup block at the top of `apps-script/newsletter.gs`. Its header
+   row must be, in this order:
+
+   ```
+   Timestamp | First name | Last name | Email | Status | Source | Unsubscribe link
+   ```
+
+   Use the **same** `RSVP_TOKEN` script property as the RSVP script, so both
+   match the single `APPS_SCRIPT_TOKEN` env var.
+
+3. **Env var.** Put the new web app's `/exec` URL in
+   `APPS_SCRIPT_NEWSLETTER_URL` (Pages → Settings → Environment variables, and
+   `.dev.vars` locally). Leave it unset and signups still save to D1 — only the
+   Sheet mirror is skipped.
+
+**Sending the newsletter.** The **Unsubscribe link** column holds each person's
+own URL (`/unsubscribe?t=<token>`). Mail-merge that column into your email so
+every recipient gets their own one-click opt-out. Do not reuse one person's link
+for everyone — it identifies the subscriber.
+
+**How opt-out behaves.** Clicking the link opens a confirmation page; the opt-out
+only happens on the click, never on page load, because mail scanners follow links
+in email and would otherwise unsubscribe people automatically. Someone without
+the link can use `/unsubscribe` and type their address (Turnstile-guarded).
+Either way the row is **marked**, never deleted — that record is what stops a
+later re-import from silently adding them back.
+
+**Admin.** The **Newsletter** tab lists everyone, filters by subscribed vs
+unsubscribed, and downloads CSV. Each row has **Unsubscribe** / **Re-subscribe**
+for when a link fails someone or an address shouldn't be on the list, plus a
+**Delete** for junk signups. Both update the Google Sheet too. Prefer
+Unsubscribe for real people: Delete removes the suppression record, so that
+address could sign up again.
+
 ## 7. Final verification
 
 - `/admin.html` → Access login → you can add/edit gatherings and quotes and see
   them save; the RSVPs tab loads.
 - `/links` lists the links, and editing one in the admin's **Links** tab changes
   the page after a save.
+- A test signup on the home page lands in the **Newsletter** admin tab **and** in
+  the newsletter Sheet; the unsubscribe link in that Sheet row opts you back out.
 - The public site shows gatherings and quotes from the database.
 - A test RSVP on a free gathering lands in the **RSVPs** admin tab **and** in the
   Google Sheet.

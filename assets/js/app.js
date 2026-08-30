@@ -3,6 +3,7 @@
 import { loadEvents, loadVoices, loadPhotos } from './api.js';
 import { AVATAR_BY_NAME, LINKS } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
+import { mountSignup } from './signup.js';
 
 /* ----------------------------------------------------------------- helpers */
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
@@ -236,6 +237,13 @@ function homeView(state) {
     </div>
   </section>
 
+  <section class="section section--card">
+    <div class="container newsletter">
+      ${sectionHeading({ center: true, eyebrow: 'Stay in the loop', title: 'The occasional note, worth', script: 'opening', description: "Where we're meeting next, and the plans that come together too fast for the calendar. No noise, and you can leave any time." })}
+      <div class="newsletter__form" id="signup"></div>
+    </div>
+  </section>
+
   <section class="section section--rose">
     <div class="cta-band">
       <h2 class="cta-band__title">Come as you are.<br>You're in great company. 💛</h2>
@@ -430,6 +438,7 @@ function render() {
   const navActive = route === 'event' ? 'gatherings' : route;
   const app = document.getElementById('app');
   app.innerHTML = navBar(navActive) + `<main id="view">${viewFor(route)}</main>` + footer();
+  mountSignup(document.getElementById('signup'), { source: 'home' });
   syncNavScroll();
   const key = route + '/' + (id || '');
   if (key !== lastKey) { window.scrollTo(0, 0); lastKey = key; } // don't jump on in-place re-render (qty, purchase)

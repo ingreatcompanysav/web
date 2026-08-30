@@ -27,11 +27,11 @@ export async function onRequestGet({ request, env }) {
   const rows = (results || []).map(rsvpToAdmin);
 
   if (format === 'csv') {
-    const header = ['created_at', 'event_id', 'name', 'email', 'guests', 'note', 'synced_sheet'];
+    const header = ['created_at', 'event_id', 'first_name', 'last_name', 'email', 'guests', 'note', 'synced_sheet'];
     const lines = [header.join(',')];
     for (const r of rows) {
       lines.push(
-        [r.createdAt, r.eventId, r.name, r.email, r.guests, r.note, r.syncedSheet]
+        [r.createdAt, r.eventId, r.firstName, r.lastName, r.email, r.guests, r.note, r.syncedSheet]
           .map(csvCell)
           .join(',')
       );
