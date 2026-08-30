@@ -7,14 +7,19 @@
 
 /* woff2 first: it is a subset (Latin, punctuation, and the A–Z that
    .media-ph__mark draws as an event initial) and 146KB against the raw
-   truetype's 406KB. The .ttf stays as the second source for the rare browser
-   with no woff2 support — every current one takes the first and never
-   requests it. Regenerate the subset if the script face ever needs a
-   character outside U+0020-007E, U+00B7, U+2013-2014, U+2018-2019, U+2026. */
+   406KB original. The second source stays for the rare browser with no woff2
+   support — every current one takes the first and never requests it.
+   Regenerate the subset if the script face ever needs a character outside
+   U+0020-007E, U+00B7, U+2013-2014, U+2018-2019, U+2026.
+
+   That second file carries a .ttf extension but is really OpenType/CFF — its
+   magic bytes are OTTO, not 0x00010000 — so it is declared opentype. Browsers
+   sniff the real format and ignore a wrong hint, but the hint is what decides
+   whether a file is fetched at all, so a wrong one can only mislead. */
 @font-face{
   font-family:"Sisterhood";
   src:url("/assets/fonts/sisterhood.woff2") format("woff2"),
-      url("/assets/fonts/sisterhood.ttf") format("truetype");
+      url("/assets/fonts/sisterhood.ttf") format("opentype");
   font-weight:400;
   font-style:normal;
   font-display:swap;
