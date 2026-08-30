@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Two URLs, and that is not an oversight. The site is hash-routed, so
+  #gatherings, #event/… and #privacy are fragments of the homepage rather than
+  separate documents — search engines do not index them, and listing them here
+  would report coverage the site does not have. If those routes ever become
+  real paths, this file grows with them.
+
+  No <lastmod>: nothing regenerates it, so any date here would start rotting the
+  day it is written, and a lastmod Google learns to distrust is worse than none.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://ingreatcompanysav.com/</loc>
+  </url>
+  <url>
+    <loc>https://ingreatcompanysav.com/links</loc>
+  </url>
+</urlset>

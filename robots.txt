@@ -1,3 +1,9 @@
 User-agent: *
 Allow: /
 Disallow: /admin.html
+
+# /unsubscribe is deliberately NOT disallowed. It carries a noindex meta tag,
+# and a crawler has to be allowed to fetch a page in order to read that tag —
+# blocking it here would leave the URL eligible for indexing, not exempt from it.
+
+Sitemap: https://ingreatcompanysav.com/sitemap.xml
