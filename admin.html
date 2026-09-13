@@ -221,15 +221,23 @@
       <summary>How this works</summary>
       <ol>
         <li>Edit, add, reorder, or remove gatherings. Pick dates and times from the calendar/clock — the ID fills in automatically.</li>
+        <li>Already on Facebook? For a public event, click <b>Create from Facebook</b> and paste its link — the title, date, place and photo come across, and you fill in the time and blurb. For any event, including private group ones, open it on Facebook, choose <b>···</b> → <b>Add to Calendar</b> to download its calendar file, then use <b>Add from calendar file</b> — that brings the time and write-up too, but no photo.</li>
         <li>Changes live only in this page until you click <b>Save changes</b>, which writes them to the live site's database.</li>
         <li>The public site updates immediately — no GitHub upload, no redeploy.</li>
       </ol>
     </details>
     <div class="toolbar">
       <button id="addEventsBtn">+ Add gathering</button>
+      <button class="ghost" id="fbEventsBtn" title="Paste a public Facebook event link — the title, date, place and photo come across">Create from Facebook</button>
+      <button class="ghost" id="icsEventsBtn" title="Import a .ics calendar file — on the Facebook event: ··· → Add to Calendar">Add from calendar file</button>
+      <input type="file" id="icsEventsFile" accept=".ics,text/calendar" hidden>
       <button class="ghost" id="collapseEventsBtn">Collapse all</button>
       <button class="ghost" id="reloadEventsBtn">Reload from site</button>
       <span class="status grow" id="eventsStatus"></span>
+      <div class="row" id="fbEventsRow" style="flex-basis:100%;display:none">
+        <input type="text" id="fbEventsUrl" placeholder="Paste the Facebook event link — https://www.facebook.com/events/…">
+        <button id="fbEventsGo">Create</button>
+      </div>
     </div>
     <div id="eventsList"></div>
   </section>
@@ -656,8 +664,9 @@ function collection(spec) {
     render(); markDirty(c);
   }
 
-  function add() {
-    rows.push(spec.blank());
+  // `prefill` lets an import (the calendar-file button) start a card filled in.
+  function add(prefill) {
+    rows.push({ ...spec.blank(), ...(prefill || {}) });
     open[rows.length - 1] = true;
     render(); markDirty(c);
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
@@ -741,7 +750,7 @@ function collection(spec) {
 
   /* ---- wiring ---- */
   const Btn = c[0].toUpperCase() + c.slice(1);   // events -> #addEventsBtn
-  $("#add" + Btn + "Btn").addEventListener("click", add);
+  $("#add" + Btn + "Btn").addEventListener("click", () => add());
   $("#reload" + Btn + "Btn").addEventListener("click", load);
   $("#collapse" + Btn + "Btn").addEventListener("click", () => {
     const anyOpen = Object.values(open).some(Boolean);
@@ -805,7 +814,7 @@ function collection(spec) {
   });
 
   const self = {
-    spec, load, save, render, setField, applyValidation, updatePreview,
+    spec, load, save, render, setField, applyValidation, updatePreview, upload, add,
     get rows() { return rows; },
     isExisting: (id) => originalIds.has(id),
     count: () => rows.length,
@@ -871,9 +880,122 @@ function uniqueEventSlug(rows, base, idx){
 function slugFor(rows, idx){
   const e = rows[idx];
   const base = slugify((e.title||"").trim() || (e.id||""));
-  const iso = displayToIso(e.date);
+  const iso = e.eventDate || displayToIso(e.date);
   return uniqueEventSlug(rows, iso && base ? iso + "-" + base : base, idx);
 }
+
+// Starts a gathering from what a public Facebook event shows the world —
+// title, date, venue, cover photo. Facebook never gives the time or the
+// write-up this way, so the card opens for those to be typed in.
+const FB_ERRORS = {
+  not_a_facebook_event_link: "That isn’t a link to a Facebook event.",
+  event_not_public: "Facebook won’t show that event without logging in — it’s probably private or members-only. Use its calendar file instead.",
+  facebook_unreachable: "Facebook didn’t answer just now — try again in a moment.",
+};
+async function createFromFacebook(){
+  const url = $("#fbEventsUrl").value.trim();
+  if(!url){ $("#fbEventsUrl").focus(); return; }
+  const col = COLLECTIONS.events;
+  const btn = $("#fbEventsGo");
+  btn.disabled = true;
+  try{
+    setStatus("eventsStatus", "Asking Facebook…");
+    const fb = await api("POST", "/api/admin/facebook-event", { url });
+    col.add({ title: fb.title, eventDate: fb.eventDate, date: isoToDisplay(fb.eventDate), place: fb.place, facebookUrl: url });
+    const i = col.count() - 1;
+    col.setField(i, "id", slugFor(col.rows, i));
+    col.applyValidation(i);
+    if(fb.image){
+      const blob = await (await fetch("/api/admin/facebook-event?image=" + encodeURIComponent(fb.image))).blob();
+      if(blob.type.startsWith("image/")) await col.upload(i, "image", 1400, new File([blob], "facebook.jpg", { type: blob.type }));
+    }
+    setStatus("eventsStatus", `Added “${fb.title}” from Facebook — add the time and blurb, then save.`, "ok");
+    $("#fbEventsUrl").value = "";
+    $("#fbEventsRow").style.display = "none";
+  }catch(err){
+    setStatus("eventsStatus", FB_ERRORS[err.message] || "Couldn’t read that event: " + err.message, "warn");
+  }finally{
+    btn.disabled = false;
+  }
+}
+// The link box lives in the toolbar rather than a prompt() dialog, which
+// embedded browsers (the desktop app's pane, say) silently swallow.
+$("#fbEventsBtn").addEventListener("click", () => {
+  const row = $("#fbEventsRow");
+  row.style.display = row.style.display === "none" ? "" : "none";
+  if(row.style.display !== "none") $("#fbEventsUrl").focus();
+});
+$("#fbEventsGo").addEventListener("click", createFromFacebook);
+$("#fbEventsUrl").addEventListener("keydown", (e) => { if(e.key === "Enter") createFromFacebook(); });
+
+// Turns a calendar (.ics) file — Facebook's "Add to Calendar" download, or
+// any other — into gatherings. This is the way in for private group events,
+// which nothing can read from outside: the admin downloads the file while
+// logged in, and it carries the time and write-up that Fill from Facebook
+// never gets. No cover photo, though — the format has no room for one.
+function parseIcs(text){
+  const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);   // unfold wrapped lines
+  const events = []; let cur = null;
+  for(const line of lines){
+    if(line === "BEGIN:VEVENT"){ cur = {}; continue; }
+    if(line === "END:VEVENT"){ if(cur) events.push(cur); cur = null; continue; }
+    const m = cur && line.match(/^([A-Z-]+)(?:;[^:]*)?:(.*)$/);
+    if(m) cur[m[1]] = m[2].replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1");
+  }
+  return events;
+}
+// "20250301T230000Z" → the same moment on Savannah's clock. A value with no
+// zone marker is a wall-clock time and is taken as already local.
+function icsWhen(v){
+  const m = (v || "").match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})\d{0,2})?(Z?)$/);
+  if(!m) return { iso:"", time:"" };
+  let [, y, mo, d, h, mi, utc] = m;
+  if(!h) return { iso:`${y}-${mo}-${d}`, time:"" };
+  if(utc){
+    const p = {};
+    new Intl.DateTimeFormat("en-US", { timeZone:"America/New_York", hourCycle:"h23",
+      year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" })
+      .formatToParts(new Date(Date.UTC(+y, +mo-1, +d, +h, +mi))).forEach(x => p[x.type] = x.value);
+    ({ year:y, month:mo, day:d, hour:h, minute:mi } = p);
+  }
+  return { iso:`${y}-${mo}-${d}`, time: timeInputToDisplay(`${h}:${mi}`) };
+}
+function gatheringFromIcs(ev){
+  const get = (k) => (ev[k] || "").trim();
+  const when = icsWhen(get("DTSTART"));
+  // Facebook ends the description with the event's own link; that belongs in
+  // the link field, not the write-up.
+  const link = get("URL") || (get("DESCRIPTION").match(/https:\/\/www\.facebook\.com\/events\/\S+/) || [""])[0];
+  return {
+    title: get("SUMMARY"),
+    eventDate: when.iso, date: isoToDisplay(when.iso), time: when.time,
+    // "Venue, Street, City, ST ZIP" → "Venue, Street", the form's own habit.
+    place: get("LOCATION").split(", ").slice(0, 2).join(", "),
+    detail: get("DESCRIPTION").replace(/\s*https:\/\/www\.facebook\.com\/events\/\S+\s*$/, "").trim(),
+    facebookUrl: link,
+  };
+}
+async function addFromIcs(file){
+  const col = COLLECTIONS.events;
+  const found = parseIcs(await file.text()).map(gatheringFromIcs).filter(e => e.title);
+  if(!found.length){
+    setStatus("eventsStatus", "No event in that file — it should be a .ics download (on the Facebook event: ··· → Add to Calendar).", "warn");
+    return;
+  }
+  for(const e of found){
+    col.add(e);
+    const i = col.count() - 1;
+    col.setField(i, "id", slugFor(col.rows, i));
+    col.applyValidation(i);
+  }
+  const what = found.length === 1 ? `“${found[0].title}”` : `${found.length} gatherings`;
+  setStatus("eventsStatus", `Added ${what} from the calendar file — check the time, write the blurb and add a photo.`, "ok");
+}
+$("#icsEventsBtn").addEventListener("click", () => $("#icsEventsFile").click());
+$("#icsEventsFile").addEventListener("change", (e) => {
+  if(e.target.files[0]) addFromIcs(e.target.files[0]);
+  e.target.value = "";
+});
 
 const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden"];
 const blankEvent = () => ({ id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0 });
