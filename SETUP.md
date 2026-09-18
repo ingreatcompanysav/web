@@ -92,6 +92,7 @@ Add these as **Secret** (encrypted) values, for Production (and Preview if shown
 | `APPS_SCRIPT_TOKEN` | A long random string; must match the Apps Script's `RSVP_TOKEN` |
 | `TURNSTILE_SECRET` | Turnstile secret key (step 5) |
 | `ACCESS_REQUIRED` | Set to `1` — defense-in-depth: the admin API also verifies the Cloudflare Access JWT (`Cf-Access-Jwt-Assertion` header or `CF_Authorization` cookie) and rejects anything without a valid one |
+| `CALENDAR_ICS_URL` | The Google Calendar feed the site publishes gatherings from (step 6f). Plain text, not a secret. Leave unset to turn the sync off |
 
 Redeploy (or push a commit) so the new values take effect. Until you set these,
 RSVPs still save to the database — they just don't copy to the Sheet, and the
@@ -259,6 +260,42 @@ so nothing can safely identify which sheet row to delete. If a row was already
 mirrored, delete it in the Sheet by hand. (Newsletter deletion is different: it
 is keyed by email, so it does update the Sheet — see 6d.)
 
+## 6f. Google Calendar → gatherings (automatic)
+
+The site subscribes to the group's Google Calendar and publishes its events as
+gatherings by itself — no admin step. `functions/_shared/calendar.js` is the
+whole mechanism; the rules are in its header comment.
+
+1. **Migrate the database** (once per database; a re-run errors harmlessly):
+   ```bash
+   npx wrangler d1 execute igc --remote --file=./db/migration-events-calendar.sql
+   ```
+2. **Get the feed address.** Google Calendar → the calendar's **Settings and
+   sharing** → **Integrate calendar** → copy **Public address in iCal format**
+   (the calendar must be shared as *Make available to public*; otherwise use
+   **Secret address in iCal format**, which then IS a secret).
+3. **Set `CALENDAR_ICS_URL`** to that address in Pages → Settings → Environment
+   variables, and redeploy.
+
+**Checking it.** The events lists answer with an `x-calendar-sync` header
+saying what the last attempt did — `ok at … : 13 calendar events`, `failed at …:
+no such column: calendar_uid` (step 1 not done), or `off: CALENDAR_ICS_URL is not
+set` (step 3 not done):
+```bash
+curl -s -D - -o /dev/null https://ingreatcompanysav.com/api/events | grep x-calendar-sync
+```
+A failed attempt retries after a minute; a successful one waits ten.
+
+**What to expect.** Pages has no scheduler, so the sync piggybacks on the site:
+the first visit to the gatherings list after ten minutes have passed pulls the
+feed. Google itself serves a calendar's feed a few hours stale, so a new event
+shows up within a few hours, not minutes. Only **upcoming** events are
+created — the calendar's past is not copied in. An upcoming event removed from
+the calendar is **hidden** on the site, not deleted. The first sync adopts
+hand-entered gatherings on the same date whose title starts the same way
+("The Witching Hour" ↔ "The Witching Hour (October Happy Hour)") rather than
+creating twins; anything named differently will need one of the pair hidden.
+
 ## 7. Final verification
 
 - `/admin.html` → Access login → you can add/edit gatherings and quotes and see
@@ -268,6 +305,8 @@ is keyed by email, so it does update the Sheet — see 6d.)
 - A test signup on the home page lands in the **Newsletter** admin tab **and** in
   the newsletter Sheet; the unsubscribe link in that Sheet row opts you back out.
 - The public site shows gatherings and quotes from the database.
+- An event added to the Google Calendar appears in the admin's Gatherings tab
+  (badge **from calendar**) and on the site within a few hours.
 - A test RSVP on a free gathering lands in the **RSVPs** admin tab **and** in the
   Google Sheet.
 

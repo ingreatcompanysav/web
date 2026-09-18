@@ -221,6 +221,7 @@
       <summary>How this works</summary>
       <ol>
         <li>Edit, add, reorder, or remove gatherings. Pick dates and times from the calendar/clock — the ID fills in automatically.</li>
+        <li>Gatherings on the group's <b>Google Calendar</b> publish themselves: within a few hours of an event being added there it appears here and on the site, marked <b>from calendar</b>, in date order. The calendar owns its title, date, time, place, link and write-up — change those in the calendar (or here; whichever was edited last wins) — while the photo, tone, category and price live only here. To keep a calendar event off the site, <b>hide</b> it or remove it from the calendar; deleting it here just brings it back on the next sync.</li>
         <li>Already on Facebook? For a public event, click <b>Create from Facebook</b> and paste its link — the title, date, place and photo come across, and you fill in the time and blurb. For any event, including private group ones, open it on Facebook, choose <b>···</b> → <b>Add to Calendar</b> to download its calendar file, then use <b>Add from calendar file</b> — that brings the time and write-up too, but no photo.</li>
         <li>Changes live only in this page until you click <b>Save changes</b>, which writes them to the live site's database.</li>
         <li>The public site updates immediately — no GitHub upload, no redeploy.</li>
@@ -1063,6 +1064,7 @@ collection({
       badges: (hasErr ? '<span class="badge err">needs fixing</span>'
                       : hasWarn ? '<span class="badge warnb">check</span>' : '')
             + (e.hidden ? ' <span class="badge off">hidden</span>' : '')
+            + (e.calendarUid ? ' <span class="badge off" title="Published from the Google Calendar — its title, date, time, place and write-up follow the calendar">from calendar</span>' : '')
             + (isEventPast(e) ? ' <span class="badge off">past</span>' : ''),
       dim: !!e.hidden,
     };

@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS events (
   -- Manual hide for drafts/cancelled events — shown nowhere when 1.
   hidden        INTEGER DEFAULT 0,
   sort_order    INTEGER DEFAULT 0,
+  -- UID of the Google Calendar event this was published from ('' = entered
+  -- by hand). See functions/_shared/calendar.js.
+  calendar_uid  TEXT    DEFAULT '',
   updated_at    TEXT    DEFAULT (datetime('now'))
 );
 

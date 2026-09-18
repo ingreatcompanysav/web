@@ -63,6 +63,9 @@ export const RESOURCES = {
       f('event_date', isoDate),
       f('hidden', flag(0), { admin: true }),
       f('sort_order', int(0), { admin: true }),
+      // Set by the calendar sync (_shared/calendar.js), never from the body:
+      // an admin save must not unlink a gathering from its calendar event.
+      f('calendar_uid', null, { admin: true, managed: true }),
       f('updated_at', null, { admin: true, managed: true }),
     ],
     // Computed on the way out. `is_past` comes from publicSelect above.
