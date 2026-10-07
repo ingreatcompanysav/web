@@ -268,12 +268,13 @@
       <summary>How this works</summary>
       <ol>
         <li>Every RSVP submitted from the site is listed here (newest first) and also written to your Google Sheet.</li>
-        <li>Filter by gathering, or download everything as a spreadsheet.</li>
+        <li>Filter by gathering, or download everything as a spreadsheet. RSVPs for gatherings that already happened are hidden until you tick <b>Show past gatherings</b>.</li>
         <li>The <b>Sheet</b> column shows whether each row reached Google Sheets. “No” usually just means the Sheet was briefly unreachable — the RSVP is still safe here.</li>
       </ol>
     </details>
     <div class="rsvp-controls">
       <select id="rsvpFilter"><option value="">All gatherings</option></select>
+      <div class="checkrow"><input type="checkbox" id="rsvpShowPast"><label for="rsvpShowPast">Show past gatherings</label></div>
       <button id="reloadRsvpsBtn">Refresh</button>
       <button class="ghost" id="csvBtn">Download CSV</button>
       <button class="ghost" id="rsvpResyncBtn" title="Send any rows marked “Sheet —” to the Google Sheet">Re-sync to Sheet</button>
@@ -1213,16 +1214,20 @@ collection({
    RSVPS
    ========================================================================= */
 const rsvpsTableEl = $("#rsvpsTable");
-let rsvpEventLabels = {};
+let rsvpEvents = {};
+const showPastRsvps = () => $("#rsvpShowPast").checked;
+// An RSVP whose gathering is gone or undated stays visible.
+const rsvpIsPast = (r) => !!rsvpEvents[r.eventId] && isEventPast(rsvpEvents[r.eventId]);
 function buildRsvpFilter(){
   const events = COLLECTIONS.events.rows;
-  rsvpEventLabels = {};
-  events.forEach(e=> rsvpEventLabels[e.id] = e.title || e.id);
+  rsvpEvents = {};
+  events.forEach(e=> rsvpEvents[e.id] = e);
+  const shown = showPastRsvps() ? events : events.filter(e=> !isEventPast(e));
   const sel = $("#rsvpFilter");
   const cur = sel.value;
-  sel.innerHTML = '<option value="">All gatherings</option>' +
-    events.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.title||e.id)}</option>`).join("");
-  sel.value = cur;
+  sel.innerHTML = `<option value="">${showPastRsvps() ? "All gatherings" : "All upcoming gatherings"}</option>` +
+    shown.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.title||e.id)}</option>`).join("");
+  sel.value = shown.some(e=> e.id === cur) ? cur : "";
 }
 async function loadRsvps(){
   try{
@@ -1230,15 +1235,18 @@ async function loadRsvps(){
     const filter = $("#rsvpFilter").value;
     const q = filter ? "?event_id="+encodeURIComponent(filter) : "";
     const data = await api("GET","/api/admin/rsvps"+q);
-    renderRsvps(data);
-    setStatus("rsvpsStatus", `${data.length} RSVP${data.length!==1?"s":""}.`, "ok");
+    const rows = showPastRsvps() ? data : data.filter(r=> !rsvpIsPast(r));
+    renderRsvps(rows);
+    const hidden = data.length - rows.length;
+    setStatus("rsvpsStatus", `${rows.length} RSVP${rows.length!==1?"s":""}.`
+      + (hidden ? ` ${hidden} more for past gatherings.` : ""), "ok");
   }catch(err){ setStatus("rsvpsStatus","Couldn’t load: "+err.message,"warn"); }
 }
 function renderRsvps(rows){
   if(!rows.length){ rsvpsTableEl.innerHTML = '<div class="empty"><h2>No RSVPs yet</h2><p>They’ll appear here as people sign up.</p></div>'; return; }
   const body = rows.map(r=>{
     const when = (r.createdAt||"").replace("T"," ").replace("Z","");
-    const ev = rsvpEventLabels[r.eventId] || r.eventId || "—";
+    const ev = (rsvpEvents[r.eventId] && rsvpEvents[r.eventId].title) || r.eventId || "—";
     const sync = r.syncedSheet ? '<span class="sync yes">Sheet ✓</span>' : '<span class="sync no">Sheet —</span>';
     return `<tr>
       <td>${escapeHtml(when)}</td>
@@ -1333,6 +1341,7 @@ $("#rsvpResyncBtn").addEventListener("click", ()=> resync("rsvps","rsvpsStatus",
 $("#subsResyncBtn").addEventListener("click", ()=> resync("subscribers","subsStatus",loadSubs));
 $("#reloadRsvpsBtn").addEventListener("click", loadRsvps);
 $("#rsvpFilter").addEventListener("change", loadRsvps);
+$("#rsvpShowPast").addEventListener("change", ()=>{ buildRsvpFilter(); loadRsvps(); });
 $("#csvBtn").addEventListener("click", ()=>{
   const filter = $("#rsvpFilter").value;
   const q = filter ? "?event_id="+encodeURIComponent(filter)+"&format=csv" : "?format=csv";
