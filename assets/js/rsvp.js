@@ -36,8 +36,8 @@ function build() {
         </label>
       </div>
       <label class="rsvp__field">
-        <span class="rsvp__label">Email <span class="rsvp__optional">(optional)</span></span>
-        <input class="rsvp__input" name="email" type="email" autocomplete="email">
+        <span class="rsvp__label">Email</span>
+        <input class="rsvp__input" name="email" type="email" autocomplete="email" required>
       </label>
       <label class="rsvp__field">
         <span class="rsvp__label">How many of you?</span>
@@ -114,6 +114,8 @@ async function submit(e) {
 
   const firstName = val('firstName');
   if (!firstName) return setMsg('Please add your first name.');
+  const email = val('email');
+  if (!email) return setMsg(friendly('email_required'));
 
   const btn = $('submit');
   btn.disabled = true;
@@ -127,7 +129,7 @@ async function submit(e) {
         eventId: current.eventId || '',
         firstName,
         lastName: val('lastName'),
-        email: val('email'),
+        email,
         guests: parseInt(val('guests'), 10) || 1,
         note: val('note'),
         turnstileToken: ts ? ts.token() : '',

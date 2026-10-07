@@ -8,6 +8,11 @@
 // few hours, so "automatic" means within a few hours of the calendar edit.
 //
 // The rules:
+//   * the calendar can hold the same gathering twice (on Sep 30 2026 every
+//     upcoming event was added a second time, each copy with its own UID).
+//     Of the events on one date whose titles start the same way, only the
+//     first created is published; the copies count as absent, so any row
+//     already made for one is hidden like an event that left the calendar;
 //   * a calendar event is tied to its row by calendar_uid. The first time it is
 //     seen, an unlinked row on the same date whose title starts the same way is
 //     adopted instead of created, so hand-entered gatherings don't get a twin;
@@ -51,10 +56,20 @@ export function syncCalendar(env) {
 async function sync(env) {
   const res = await fetch(env.CALENDAR_ICS_URL, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`feed answered ${res.status}`);
-  const feed = parseIcs(await res.text())
+  const text = await res.text();
+  // The calendar's web page, embed link or a login wall all answer 200 with
+  // HTML. Say so, rather than reporting an empty calendar.
+  if (!/^BEGIN:VCALENDAR/m.test(text)) {
+    throw new Error(`CALENDAR_ICS_URL is not a calendar feed (got ${res.headers.get('content-type') || 'unknown type'}) — use the "address in iCal format" from the calendar's settings`);
+  }
+  const feed = [];
+  for (const g of parseIcs(text)
     .map((ev) => gathering(ev))
-    .filter(Boolean)
-    .sort((a, b) => a.event_date.localeCompare(b.event_date));
+    .filter((g) => g && !g.cancelled)
+    .sort((a, b) => a.created.localeCompare(b.created))) {
+    if (!feed.some((f) => sameGathering(f, g))) feed.push(g);
+  }
+  feed.sort((a, b) => a.event_date.localeCompare(b.event_date));
   // An empty feed is far more likely a bad fetch than a cleared calendar, and
   // acting on it would hide every synced gathering.
   if (!feed.length) return 0;
@@ -65,8 +80,7 @@ async function sync(env) {
   ).all();
   const seen = new Set();
 
-  for (const { uid, cancelled, modified, ...g } of feed) {
-    if (cancelled) continue;
+  for (const { uid, cancelled, created, modified, ...g } of feed) {
     seen.add(uid);
     const row = rows.find((r) => r.calendar_uid === uid) || adoptable(rows, g);
     if (!row) {
@@ -96,11 +110,12 @@ async function sync(env) {
 // A hand-entered gathering on the same day whose title starts the same way
 // ("The Witching Hour" for "The Witching Hour (October Happy Hour)").
 function adoptable(rows, g) {
-  const s = slug(g.title);
-  return s && rows.find((r) => {
-    const t = slug(r.title);
-    return !r.calendar_uid && r.event_date === g.event_date && t && (t.startsWith(s) || s.startsWith(t));
-  });
+  return rows.find((r) => !r.calendar_uid && sameGathering(r, g));
+}
+
+function sameGathering(a, b) {
+  const s = slug(a.title), t = slug(b.title);
+  return a.event_date === b.event_date && s && t && (s.startsWith(t) || t.startsWith(s));
 }
 
 // New rows slot in among the dated ones by date, so a gathering added to the
@@ -143,6 +158,7 @@ function gathering(ev) {
   return {
     uid: get('UID'),
     cancelled: get('STATUS') === 'CANCELLED',
+    created: get('CREATED'),
     // "20260910T163552Z" → "2026-09-10 16:35:52", the shape of updated_at.
     modified: get('LAST-MODIFIED').replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3 $4:$5:$6'),
     title,

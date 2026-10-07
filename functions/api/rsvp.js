@@ -4,7 +4,7 @@
 //   2. Insert the RSVP into D1.
 //   3. Mirror the row to the Google Sheet via the Apps Script web app.
 //      Sheet failures do NOT fail the request (the row is safe in D1).
-import { json } from '../_shared/db.js';
+import { json, normalizeEmail, looksLikeEmail } from '../_shared/db.js';
 import { verifyTurnstile, postToAppsScript } from '../_shared/integrations.js';
 
 // Mirrors one RSVP into the RSVP sheet. Failures are non-fatal by design.
@@ -22,6 +22,9 @@ export async function onRequestPost({ request, env }) {
   const firstName = String(body.firstName || '').trim();
   const lastName = String(body.lastName || '').trim();
   if (!firstName) return json({ ok: false, error: 'name_required' }, 400);
+  const email = normalizeEmail(body.email);
+  if (!email) return json({ ok: false, error: 'email_required' }, 400);
+  if (!looksLikeEmail(email)) return json({ ok: false, error: 'email_invalid' }, 400);
 
   // `name` stays the combined value the Sheet's Name column and the CSV use.
   const name = [firstName, lastName].filter(Boolean).join(' ');
@@ -35,7 +38,7 @@ export async function onRequestPost({ request, env }) {
     first_name: firstName,
     last_name: lastName,
     name,
-    email: String(body.email || '').trim(),
+    email,
     guests: Number.isFinite(+body.guests) ? Math.max(1, Math.trunc(+body.guests)) : 1,
     note: String(body.note || '').trim(),
   };

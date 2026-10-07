@@ -419,7 +419,7 @@ function privacyView() {
         <p>When you RSVP to a gathering, we ask for:</p>
         <ul>
           <li><strong>Your name</strong>, so we know who’s coming.</li>
-          <li><strong>Your email address</strong> (optional), so we can send you details and updates about the gathering you signed up for.</li>
+          <li><strong>Your email address</strong>, so we can send you details and updates about the gathering you signed up for.</li>
           <li><strong>Number of guests</strong>, so we can plan the right amount of space.</li>
           <li><strong>Any note you add</strong>, anything you’d like us to know, shared at your discretion.</li>
         </ul>
