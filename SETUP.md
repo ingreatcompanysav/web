@@ -296,6 +296,38 @@ hand-entered gatherings on the same date whose title starts the same way
 ("The Witching Hour" ↔ "The Witching Hour (October Happy Hour)") rather than
 creating twins; anything named differently will need one of the pair hidden.
 
+## 6g. Follow-up survey — emailed the morning after
+
+Tick **Email the follow-up survey** on a gathering in the admin and, at 9am the
+day after it happens, everyone who RSVP'd gets one email from the group's Gmail
+linking to `/survey`. The questions are edited on the admin's **Survey** tab,
+which also shows the responses. Pages has no scheduler, so a small Apps Script
+in the group's Google account runs the 9am trigger and sends the mail;
+`functions/api/survey-due.js` decides who is due.
+
+Two rules, enforced on the server: only gatherings dated **yesterday** send
+(a box ticked on anything older does nothing, and the admin greys it out), and
+**one survey per person per gathering** — a row per address, claimed the moment
+it is handed to the script, so a re-run can't email anyone twice.
+
+1. **Migrate the database** (once per database):
+   ```bash
+   npx wrangler d1 execute igc --remote --file=./db/migration-surveys.sql
+   ```
+   This also adds five starter questions the client can edit.
+2. **Set up the Apps Script** — follow the header of `apps-script/survey.gs`:
+   new project in the group's Gmail, time zone Eastern, script properties
+   `SITE_URL` and `SURVEY_TOKEN` (= `APPS_SCRIPT_TOKEN`), then run
+   `installTrigger` once. No web-app deployment and no new Cloudflare variable.
+
+**Checking it.** `sendDueSurveys` run by hand logs `Surveys for <date>: N sent`.
+The endpoint can be poked directly — an empty list just means nothing is due:
+```bash
+curl -s -X POST https://ingreatcompanysav.com/api/survey-due -H 'content-type: application/json' -d '{"token":"<APPS_SCRIPT_TOKEN>","action":"due"}'
+```
+Careful: that call **claims** whatever is due, the same as the script does, so
+those people won't then be emailed. Only run it when nothing should be.
+
 ## 7. Final verification
 
 - `/admin.html` → Access login → you can add/edit gatherings and quotes and see

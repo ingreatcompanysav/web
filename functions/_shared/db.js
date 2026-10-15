@@ -63,6 +63,12 @@ export const newToken = () =>
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
+// Savannah's calendar date `daysAgo` days back, as 'YYYY-MM-DD'. A fixed -5h
+// (EST) like the events SQL uses; during EDT it rolls over an hour late, at
+// 1am, which nothing here is sensitive to.
+export const easternIso = (daysAgo = 0) =>
+  new Date(Date.now() - 5 * 3600e3 - daysAgo * 86400e3).toISOString().slice(0, 10);
+
 // --- rsvps ------------------------------------------------------------------
 export const rsvpToAdmin = (r) => ({
   id: r.id,

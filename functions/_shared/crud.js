@@ -24,6 +24,7 @@ function project(r, row, { admin }) {
 function parseBody(r, body) {
   const values = {};
   for (const f of writable(r)) values[f.col] = f.parse(body[f.key]);
+  if (r.normalize) r.normalize(values);
   return values;
 }
 

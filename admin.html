@@ -166,6 +166,8 @@
   table.rsvps tr:last-child td{border-bottom:0}
   table.rsvps tr.rsvp-group th{background:var(--cyan-100);color:var(--ink);font-size:14px;text-transform:none;letter-spacing:0}
   table.rsvps tr.rsvp-group .hint{font-weight:400;margin-left:8px}
+  .section-h{font-size:18px;margin:28px 0 10px}
+  table.survey-table{margin-bottom:18px}
   .sync{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px}
   .sync.yes{background:var(--cyan-100);color:var(--cyan-800)}
   .sync.no{background:var(--gold-100);color:var(--gold-800)}
@@ -211,6 +213,7 @@
     <button class="tab" data-tab="photos">Photos</button>
     <button class="tab" data-tab="links">Links</button>
     <button class="tab" data-tab="rsvps">RSVPs</button>
+    <button class="tab" data-tab="survey">Survey</button>
     <button class="tab" data-tab="subs">Newsletter</button>
   </div>
 </div>
@@ -284,6 +287,36 @@
       <span class="status grow" id="rsvpsStatus"></span>
     </div>
     <div id="rsvpsTable"></div>
+  </section>
+
+  <!-- ============ SURVEY ============ -->
+  <section class="panel" id="panel-survey">
+    <details class="help">
+      <summary>How this works</summary>
+      <ol>
+        <li>On a gathering, tick <b>Email the follow-up survey</b>. At <b>9am the day after</b> it happens, everyone who RSVP'd gets one email from the group's Gmail with a link to these questions.</li>
+        <li>Each person gets it <b>once</b> per gathering, however many times they RSVP'd. A gathering that's more than a day past can't be ticked — the survey only goes out the morning after.</li>
+        <li>The questions below are shared by every gathering. Reorder with the arrows, turn one <b>off</b> to stop asking it, and click <b>Save changes</b>. Answers already in keep the wording they were asked with.</li>
+        <li>Answers appear under <b>Responses</b> as they come in, grouped by gathering.</li>
+      </ol>
+    </details>
+    <h2 class="section-h">Questions</h2>
+    <div class="toolbar">
+      <button id="addQuestionsBtn">+ Add question</button>
+      <button class="ghost" id="collapseQuestionsBtn">Collapse all</button>
+      <button class="ghost" id="reloadQuestionsBtn">Reload from site</button>
+      <span class="status grow" id="questionsStatus"></span>
+    </div>
+    <div id="questionsList"></div>
+
+    <h2 class="section-h">Responses</h2>
+    <div class="rsvp-controls">
+      <select id="surveyFilter"><option value="">All gatherings</option></select>
+      <button id="reloadSurveyBtn">Refresh</button>
+      <button class="ghost" id="surveyCsvBtn">Download CSV</button>
+      <span class="status grow" id="surveyStatus"></span>
+    </div>
+    <div id="surveyTable"></div>
   </section>
 
   <!-- ============ PHOTOS ============ -->
@@ -411,7 +444,7 @@ async function api(method, path, body){
 const $ = s => document.querySelector(s);
 
 let activeTab = "events";
-const dirty = { events:false, quotes:false, links:false };
+const dirty = { events:false, quotes:false, links:false, questions:false };
 function markDirty(tab){ dirty[tab]=true; updateSaveInfo(); }
 
 /* =========================================================================
@@ -494,7 +527,7 @@ function renderField(c, i, row, o) {
     return `
       <div class="field full">
         <div class="checkrow">
-          <input type="checkbox" id="${c}-${o.key}-${i}" ${dataAttrs(c, i, o.key)}${row[o.key] ? " checked" : ""}>
+          <input type="checkbox" id="${c}-${o.key}-${i}" ${dataAttrs(c, i, o.key)}${row[o.key] && !o.disabled ? " checked" : ""}${o.disabled ? " disabled" : ""}>
           <label for="${c}-${o.key}-${i}">${o.label}${o.hint ? ` <span class="hint">${o.hint}</span>` : ""}</label>
         </div>
       </div>`;
@@ -795,6 +828,7 @@ function collection(spec) {
     if (el.type === "checkbox") rows[i][k] = el.checked ? 1 : 0;
     else if (el.tagName === "SELECT") rows[i][k] = el.value;
     else return;
+    if (spec.onChanged) spec.onChanged(self, i, k);
     refreshHeader(i);
     markDirty(c);
   });
@@ -844,6 +878,19 @@ function isEventPast(e){
   const today = new Date(); today.setHours(0,0,0,0);
   return new Date(iso+"T00:00:00") < today;
 }
+// The survey goes out at 9am the day after, so it can be scheduled up to and
+// including the morning after — never for anything older or undated. The
+// server applies the same rule (resources.js normalize).
+function surveyAllowed(e){
+  const iso = e.eventDate || "";
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const y = new Date(); y.setHours(0,0,0,0); y.setDate(y.getDate()-1);
+  return new Date(iso+"T00:00:00") >= y;
+}
+const SURVEY_HINT = "— 9am the day after, to everyone who RSVP'd (once each).";
+const SURVEY_OFF_HINT = (e) => e.eventDate
+  ? "— this gathering is more than a day past, so a survey can't be scheduled."
+  : "— set the real date above first.";
 function isoToDisplay(iso){
   if(!iso) return "";
   const [y,m,d] = iso.split("-").map(Number);
@@ -1001,8 +1048,8 @@ $("#icsEventsFile").addEventListener("change", (e) => {
   e.target.value = "";
 });
 
-const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden"];
-const blankEvent = () => ({ id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0 });
+const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden","surveyAuto"];
+const blankEvent = () => ({ id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0,surveyAuto:0 });
 
 collection({
   key: "events",
@@ -1068,7 +1115,8 @@ collection({
                       : hasWarn ? '<span class="badge warnb">check</span>' : '')
             + (e.hidden ? ' <span class="badge off">hidden</span>' : '')
             + (e.calendarUid ? ' <span class="badge off" title="Published from the Google Calendar — its title, date, time, place and write-up follow the calendar">from calendar</span>' : '')
-            + (isEventPast(e) ? ' <span class="badge off">past</span>' : ''),
+            + (isEventPast(e) ? ' <span class="badge off">past</span>' : '')
+            + (e.surveyAuto && surveyAllowed(e) ? ' <span class="badge off" title="Follow-up survey emails at 9am the day after">survey</span>' : ''),
       dim: !!e.hidden,
     };
   },
@@ -1101,6 +1149,8 @@ collection({
     { key:"note", label:"Photo caption", hint:"text shown only when there's no photo above", type:"textarea", full:true, placeholder:"Photo — ..." },
     { key:"hidden", label:"Hide this gathering", type:"check",
       hint:"— for a draft or a cancelled event; it won't show anywhere on the site. Past events drop off on their own by date." },
+    { key:"surveyAuto", label:"Email the follow-up survey", type:"check",
+      disabled: !surveyAllowed(e), hint: surveyAllowed(e) ? SURVEY_HINT : SURVEY_OFF_HINT(e) },
   ],
 
   // The two pickers write through to the display strings beside them.
@@ -1110,6 +1160,7 @@ collection({
     if(role === "date-pick"){
       col.rows[i].eventDate = el.value;             // real ISO date — drives past/upcoming
       col.setField(i, "date", isoToDisplay(el.value));
+      syncSurveyBox(col, i);
       if(!col.isExisting(col.rows[i].id) && (col.rows[i].title||"").trim()) col.setField(i, "id", slugFor(col.rows, i));
     } else {
       col.setField(i, "time", timeInputToDisplay(el.value));
@@ -1127,6 +1178,20 @@ collection({
   },
   afterLoad: () => buildRsvpFilter(),
 });
+
+// The date decides whether the survey box can be ticked, so keep it in step
+// as the date picker moves — without re-rendering the card being edited.
+function syncSurveyBox(col, i){
+  const e = col.rows[i];
+  const box = document.getElementById(`events-surveyAuto-${i}`);
+  if(!box) return;
+  const ok = surveyAllowed(e);
+  if(!ok) e.surveyAuto = 0;
+  box.disabled = !ok;
+  box.checked = ok && !!e.surveyAuto;
+  const hint = box.parentElement.querySelector(".hint");
+  if(hint) hint.textContent = ok ? SURVEY_HINT : SURVEY_OFF_HINT(e);
+}
 
 /* ---- quotes ---- */
 collection({
@@ -1210,6 +1275,132 @@ collection({
     { key:"tone", label:"Tone", hint:"accent colour", type:"select", options:["rose","cyan","gold","cream"] },
     { key:"active", label:"Show this link on the links page", type:"check" },
   ],
+});
+
+/* ---- survey questions ---- */
+const QUESTION_KINDS = [
+  ["rating", "Rating, 1 to 5"], ["text", "Short answer"], ["longtext", "Long answer"],
+  ["choice", "Pick one from a list"], ["yesno", "Yes / No"],
+];
+const kindLabel = (k) => (QUESTION_KINDS.find(([v]) => v === k) || [k, k])[1];
+
+collection({
+  key: "questions",
+  endpoint: "/api/admin/survey-questions",
+  noun: "question",
+  tones: ["cream"],
+  empty: { title:"No questions yet", body:"Add the questions the follow-up survey should ask." },
+  savedMsg: "Saved ✓ The survey is updated.",
+
+  blank: () => ({ id:null, label:"", kind:"rating", options:"", required:0, active:1 }),
+  fromApi: (o) => ({ id:o.id, label:o.label||"", kind:o.kind||"text", options:o.options||"", required:o.required?1:0, active:o.active?1:0 }),
+  payload: (q) => ({ label:q.label, kind:q.kind, options:q.options, required:q.required, active:q.active }),
+  confirmDelete: (q) => `Delete “${q.label||"this question"}”? It stops being asked when you Save. Answers already in are kept.`,
+
+  validate(q){
+    const errs = {};
+    if(!(q.label||"").trim()) errs.label = "The question is required.";
+    if(q.kind === "choice" && (q.options||"").split("\n").filter(o => o.trim()).length < 2)
+      errs.options = "Add at least two choices, one per line.";
+    return { errs };
+  },
+  head: (q) => ({
+    title: q.label || "(no question)",
+    meta: kindLabel(q.kind) + (q.required ? " · required" : ""),
+    badges: q.active ? "" : '<span class="badge off">off</span>',
+    dim: !q.active,
+  }),
+  fields: (q) => [
+    { key:"label", label:"Question", required:true, full:true, placeholder:"e.g. What did you love?" },
+    { key:"kind", label:"Answer type", type:"select", options:QUESTION_KINDS },
+    ...(q.kind === "choice"
+      ? [{ key:"options", label:"Choices", hint:"one per line", type:"textarea", full:true, placeholder:"Brunch\nDinner\nSomething outdoors" }]
+      : []),
+    { key:"required", label:"Must be answered", type:"check" },
+    { key:"active", label:"Ask this question", type:"check" },
+  ],
+  // Switching to/from "Pick one" shows or hides the choices box.
+  onChanged(col, i, k){ if(k === "kind") col.render(); },
+});
+
+/* =========================================================================
+   SURVEY RESPONSES
+   ========================================================================= */
+const surveyTableEl = $("#surveyTable");
+let surveyRows = [];
+
+function surveyGroups(){
+  const filter = $("#surveyFilter").value;
+  const groups = new Map();
+  surveyRows.filter(r => !filter || r.eventId === filter).forEach(r => {
+    if(!groups.has(r.eventId)) groups.set(r.eventId, []);
+    groups.get(r.eventId).push(r);
+  });
+  return [...groups].sort(([a],[b]) => byGatheringDate(rsvpEvents[a], rsvpEvents[b]));
+}
+// Every question label any answer in the list was asked with, in first-seen
+// order — old answers keep the wording they were given under.
+const labelsOf = (list) => [...new Set(list.flatMap(r => r.answers.map(a => a.label)))];
+const answerText = (r, label) => { const a = r.answers.find(x => x.label === label); return a ? String(a.answer) : ""; };
+
+async function loadSurvey(){
+  try{
+    setStatus("surveyStatus","Loading…");
+    surveyRows = await api("GET","/api/admin/surveys");
+    const sel = $("#surveyFilter"), cur = sel.value;
+    const ids = [...new Set(surveyRows.map(r => r.eventId))].sort((a,b) => byGatheringDate(rsvpEvents[a], rsvpEvents[b]));
+    sel.innerHTML = '<option value="">All gatherings</option>' +
+      ids.map(id => `<option value="${escapeAttr(id)}">${escapeHtml((rsvpEvents[id] && rsvpEvents[id].title) || id)}</option>`).join("");
+    sel.value = ids.includes(cur) ? cur : "";
+    renderSurvey();
+    const answered = surveyRows.filter(r => r.answeredAt).length;
+    setStatus("surveyStatus", `${answered} response${answered!==1?"s":""} from ${surveyRows.length} sent.`, "ok");
+  }catch(err){ setStatus("surveyStatus","Couldn’t load: "+err.message,"warn"); }
+}
+function renderSurvey(){
+  const groups = surveyGroups();
+  if(!groups.length){
+    surveyTableEl.innerHTML = '<div class="empty"><h2>No surveys sent yet</h2><p>Tick “Email the follow-up survey” on a gathering — responses show up here.</p></div>';
+    return;
+  }
+  surveyTableEl.innerHTML = groups.map(([id, list]) => {
+    const e = rsvpEvents[id];
+    const title = (e && e.title) || id || "No gathering";
+    const answered = list.filter(r => r.answeredAt);
+    const labels = labelsOf(answered);
+    const head = `<tr class="rsvp-group"><th colspan="${labels.length + 2}">${escapeHtml(title)}`
+      + `<span class="hint">${e && e.date ? escapeHtml(e.date)+" · " : ""}${list.length} sent, ${answered.length} answered</span></th></tr>`;
+    const rows = answered.map(r => `<tr>
+      <td>${escapeHtml(r.answeredAt.replace("T"," "))}</td>
+      <td>${escapeHtml(r.firstName)}<br><a href="mailto:${escapeAttr(r.email)}">${escapeHtml(r.email)}</a></td>
+      ${labels.map(l => `<td>${escapeHtml(answerText(r, l))}</td>`).join("")}
+    </tr>`).join("");
+    return `<table class="rsvps survey-table">
+      <thead>${head}<tr><th>Answered</th><th>Who</th>${labels.map(l => `<th>${escapeHtml(l)}</th>`).join("")}</tr></thead>
+      <tbody>${rows || `<tr><td colspan="${labels.length + 2}" class="hint">No answers yet.</td></tr>`}</tbody></table>`;
+  }).join("");
+}
+$("#reloadSurveyBtn").addEventListener("click", loadSurvey);
+$("#surveyFilter").addEventListener("change", renderSurvey);
+$("#surveyCsvBtn").addEventListener("click", ()=>{
+  const list = surveyGroups().flatMap(([, l]) => l).filter(r => r.answeredAt);
+  const labels = labelsOf(list);
+  // Same formula-injection guard as the other CSVs: answers are typed by the public.
+  const cell = v => {
+    let t = String(v==null?"":v);
+    if(/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+    return `"${t.replace(/"/g,'""')}"`;
+  };
+  const head = ["Gathering","Answered","First name","Email", ...labels];
+  const csv = [head.map(cell).join(",")].concat(list.map(r => [
+    (rsvpEvents[r.eventId] && rsvpEvents[r.eventId].title) || r.eventId, r.answeredAt, r.firstName, r.email,
+    ...labels.map(l => answerText(r, l)),
+  ].map(cell).join(","))).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = "survey-responses.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 });
 
 /* =========================================================================
@@ -1636,6 +1827,7 @@ function switchTab(tab){
   if(tab==="rsvps") loadRsvps();
   if(tab==="photos") loadPhotos();
   if(tab==="subs")   loadSubs();
+  if(tab==="survey") loadSurvey();
   updateSaveInfo();
   window.scrollTo({top:0});
 }
@@ -1691,7 +1883,7 @@ fetch("/cdn-cgi/access/get-identity")
 /* ---- Boot ---- */
 (async function boot(){
   // Events first: the RSVP tab's filter is built from them.
-  for(const t of ["events","quotes","links"]) await COLLECTIONS[t].load();
+  for(const t of ["events","quotes","links","questions"]) await COLLECTIONS[t].load();
 })();
 </script>
 </body>

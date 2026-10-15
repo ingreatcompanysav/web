@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How was it? — In Great Company</title>
+  <meta name="description" content="Tell us how the gathering went.">
+  <!-- Not a page for search results: it is only ever reached from a survey email. -->
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="icon" href="/assets/img/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/assets/img/icon-180.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Montserrat:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/base.css">
+  <link rel="stylesheet" href="/assets/css/page.css">
+  <style>
+    /* Only the questions — the card, title, lead, button and fine print are
+       the shared shape in page.css. */
+    .page-card{max-width:560px}
+    .s-q{text-align:left;margin:0 0 var(--space-6);border:0;padding:0}
+    .s-label{
+      display:block;
+      font-size:var(--text-body-m);
+      font-weight:var(--weight-semibold);
+      color:var(--text-strong);
+      margin-bottom:var(--space-3);
+      padding:0;
+    }
+    .s-req{color:var(--brand-on-dark)}
+    .s-input{
+      width:100%;
+      font:inherit;
+      font-size:var(--text-body-m);
+      color:var(--text-strong);
+      background:var(--surface-sunk);
+      border:var(--border-w) solid var(--border-soft);
+      border-radius:var(--radius-sm);
+      padding:12px 13px;
+    }
+    textarea.s-input{min-height:96px;resize:vertical}
+    .s-input:focus-visible{border-color:var(--border-focus);box-shadow:var(--focus-ring);outline:none}
+    /* Ratings, yes/no and choices are radio buttons dressed as pills. */
+    .s-opts{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+    .s-opts--col{flex-direction:column;align-items:stretch}
+    .s-opt{position:relative}
+    .s-opt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+    .s-opt span{
+      display:block;
+      min-width:48px;
+      text-align:center;
+      font-size:var(--text-body-m);
+      color:var(--text-strong);
+      background:var(--surface-sunk);
+      border:var(--border-w) solid var(--border-soft);
+      border-radius:var(--radius-pill);
+      padding:10px 16px;
+      transition:var(--transition-base);
+    }
+    .s-opts--col .s-opt span{text-align:left;border-radius:var(--radius-sm)}
+    .s-opt input:checked + span{background:var(--brand-primary);color:var(--ink-on-rose);border-color:transparent}
+    .s-opt input:focus-visible + span{box-shadow:var(--focus-ring)}
+    .s-scale{display:flex;justify-content:space-between;font-size:var(--text-caption);color:var(--text-muted);margin-top:var(--space-2);max-width:296px}
+    .s-q.err .s-label{color:var(--brand-on-dark)}
+    .u-err{
+      font-size:var(--text-body-s);
+      color:var(--brand-on-dark);
+      background:rgba(239,46,159,.12);
+      border-radius:var(--radius-sm);
+      padding:10px 12px;
+      margin:var(--space-4) 0 0;
+    }
+  </style>
+</head>
+<body>
+  <main class="page-card">
+    <img class="page-logo" src="/assets/img/logo-cream-340.png" width="340" height="178" alt="In Great Company">
+    <div id="view">
+      <p class="page-lead" aria-live="polite">Loading…</p>
+    </div>
+  </main>
+  <script type="module" src="/assets/js/survey.js?v=1"></script>
+</body>
+</html>

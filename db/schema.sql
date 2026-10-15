@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS events (
   -- UID of the Google Calendar event this was published from ('' = entered
   -- by hand). See functions/_shared/calendar.js.
   calendar_uid  TEXT    DEFAULT '',
+  -- 1 = email the follow-up survey to RSVPs at 9am the day after. See
+  -- functions/api/survey-due.js.
+  survey_auto   INTEGER DEFAULT 0,
   updated_at    TEXT    DEFAULT (datetime('now'))
 );
 
@@ -128,3 +131,30 @@ CREATE TABLE IF NOT EXISTS subscribers (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_token ON subscribers(token);
+
+-- Follow-up surveys — see db/migration-surveys.sql for the notes and the
+-- starter questions.
+CREATE TABLE IF NOT EXISTS survey_questions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  label       TEXT NOT NULL,
+  kind        TEXT    DEFAULT 'text',
+  options     TEXT    DEFAULT '',
+  required    INTEGER DEFAULT 0,
+  active      INTEGER DEFAULT 1,
+  sort_order  INTEGER DEFAULT 0,
+  updated_at  TEXT    DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS surveys (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id     TEXT NOT NULL,
+  email        TEXT NOT NULL,
+  first_name   TEXT    DEFAULT '',
+  token        TEXT NOT NULL,
+  sent_at      TEXT,
+  answers      TEXT,
+  answered_at  TEXT,
+  created_at   TEXT    DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_surveys_person ON surveys(event_id, email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_surveys_token ON surveys(token);

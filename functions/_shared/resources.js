@@ -8,6 +8,8 @@
 // Here each column is declared once. crud.js derives the statements and the
 // projections from these lists.
 
+import { easternIso } from './db.js';
+
 /* ------------------------------------------------------------- parsers */
 const str = (v) => (v == null ? '' : String(v));
 const trim = (v) => str(v).trim();
@@ -31,6 +33,7 @@ const f = (col, parse, opts = {}) => ({ col, key: camel(col), parse, ...opts });
 // key falls back to a generic link mark there.
 export const LINK_ICONS = ['link', 'instagram', 'facebook', 'email', 'calendar', 'ticket', 'heart'];
 export const LINK_TONES = ['rose', 'cyan', 'gold', 'cream'];
+export const QUESTION_KINDS = ['rating', 'text', 'longtext', 'choice', 'yesno'];
 
 export const RESOURCES = {
   events: {
@@ -66,10 +69,19 @@ export const RESOURCES = {
       // Set by the calendar sync (_shared/calendar.js), never from the body:
       // an admin save must not unlink a gathering from its calendar event.
       f('calendar_uid', null, { admin: true, managed: true }),
+      // Email the follow-up survey at 9am the day after (api/survey-due.js).
+      f('survey_auto', flag(0), { admin: true }),
       f('updated_at', null, { admin: true, managed: true }),
     ],
     // Computed on the way out. `is_past` comes from publicSelect above.
     derive: { past: (r) => !!r.is_past },
+    // A survey can only be scheduled for a gathering that hasn't happened yet
+    // or happened yesterday — anything older is more than 24h gone, and the
+    // admin greys the box out for it. Enforced here too so a stale tab can't
+    // sneak one through.
+    normalize(v) {
+      if (!v.event_date || v.event_date < easternIso(1)) v.survey_auto = 0;
+    },
   },
 
   quotes: {
@@ -105,6 +117,25 @@ export const RESOURCES = {
       f('subtitle', str),
       f('icon', oneOf(LINK_ICONS, '')),
       f('tone', oneOf(LINK_TONES, 'rose')),
+      f('active', flag(1), { admin: true }),
+      f('sort_order', int(0), { admin: true }),
+      f('updated_at', null, { admin: true, managed: true }),
+    ],
+  },
+
+  // The follow-up survey's one shared question set. Only the survey page
+  // reads it publicly (api/survey.js), so there is no publicList for it.
+  survey_questions: {
+    table: 'survey_questions',
+    id: { column: 'id', numeric: true },
+    order: 'sort_order ASC, id ASC',
+    publicWhere: 'active = 1',
+    fields: [
+      f('label', trim, { required: 'label_required' }),
+      f('kind', oneOf(QUESTION_KINDS, 'text')),
+      // One choice per line; only used when kind = choice.
+      f('options', str),
+      f('required', flag(0)),
       f('active', flag(1), { admin: true }),
       f('sort_order', int(0), { admin: true }),
       f('updated_at', null, { admin: true, managed: true }),
