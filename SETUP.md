@@ -309,6 +309,8 @@ Two rules, enforced on the server: only gatherings dated **yesterday** send
 (a box ticked on anything older does nothing, and the admin greys it out), and
 **one survey per person per gathering** — a row per address, claimed the moment
 it is handed to the script, so a re-run can't email anyone twice.
+Every survey email ends with a "stop sending me feedback emails" link; anyone
+who clicks it lands in `survey_optouts` and is skipped for every gathering after.
 
 1. **Migrate the database** (once per database):
    ```bash

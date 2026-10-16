@@ -4,13 +4,16 @@
 //
 //   GET  ?t=<token>          who it's for, which gathering, and the questions
 //   POST { token, answers }  answers = { <question id>: value }. Accepted once.
+//   POST { token, action: 'optout' }  never send this address another survey.
+//        A POST, not a GET: mail scanners follow links in email, and a link
+//        that opted people out on sight would do it for them.
 import { json } from '../_shared/db.js';
 
 const MAX_TEXT = 2000;
 
 const findSurvey = (env, token) =>
   env.DB.prepare(
-    `SELECT s.id, s.first_name, s.answered_at, e.title
+    `SELECT s.id, s.email, s.first_name, s.answered_at, e.title
        FROM surveys s LEFT JOIN events e ON e.id = s.event_id
       WHERE s.token = ?`
   ).bind(token).first();
@@ -68,6 +71,12 @@ export async function onRequestPost({ request, env }) {
   if (!token) return json({ ok: false, error: 'token_required' }, 400);
   const s = await findSurvey(env, token);
   if (!s) return json({ ok: false, error: 'not_found' }, 404);
+
+  if (body.action === 'optout') {
+    await env.DB.prepare('INSERT OR IGNORE INTO survey_optouts (email) VALUES (?)').bind(s.email).run();
+    return json({ ok: true });
+  }
+
   if (s.answered_at) return json({ ok: false, error: 'already_answered' }, 409);
 
   const given = body.answers && typeof body.answers === 'object' ? body.answers : {};

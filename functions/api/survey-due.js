@@ -2,7 +2,7 @@
 // from its daily 9am trigger. Not under /api/admin because Cloudflare Access
 // would turn the script away; the shared APPS_SCRIPT_TOKEN guards it instead.
 //
-//   { token, action: 'due' }             -> { ok, surveys: [{token, email, firstName, eventTitle, url}] }
+//   { token, action: 'due' }             -> { ok, surveys: [{token, email, firstName, eventTitle, url, optoutUrl}] }
 //   { token, action: 'failed', tokens }  -> hands those back so a re-run can retry them
 //
 // Two rules the client asked for, and where each is held:
@@ -13,6 +13,8 @@
 //     'due' claims each row by stamping sent_at in the same statement that
 //     returns it — a row with sent_at is never handed out again, so a re-run,
 //     a double trigger or a retry can't email anyone twice.
+//   * Nobody who opted out (survey_optouts, via the link in every survey email)
+//     is sent another.
 import { json, newToken, easternIso } from '../_shared/db.js';
 
 export async function onRequestPost({ request, env }) {
@@ -44,9 +46,12 @@ export async function onRequestPost({ request, env }) {
   const out = [];
   for (const e of events || []) {
     // One row per distinct address; emails are already lowercased on RSVP.
+    // Anyone who opted out of feedback emails is never given a row.
     const { results: people } = await env.DB.prepare(
       `SELECT email, MIN(first_name) AS first_name FROM rsvps
-        WHERE event_id = ? AND email != '' GROUP BY email`
+        WHERE event_id = ? AND email != ''
+          AND email NOT IN (SELECT email FROM survey_optouts)
+        GROUP BY email`
     ).bind(e.id).all();
     const inserts = (people || []).map((p) =>
       env.DB.prepare(
@@ -58,6 +63,7 @@ export async function onRequestPost({ request, env }) {
     const { results: claimed } = await env.DB.prepare(
       `UPDATE surveys SET sent_at = datetime('now')
         WHERE event_id = ? AND sent_at IS NULL AND answered_at IS NULL
+          AND email NOT IN (SELECT email FROM survey_optouts)
         RETURNING token, email, first_name`
     ).bind(e.id).all();
     for (const s of claimed || []) {
@@ -67,6 +73,7 @@ export async function onRequestPost({ request, env }) {
         firstName: s.first_name || '',
         eventTitle: e.title,
         url: `${origin}/survey?t=${s.token}`,
+        optoutUrl: `${origin}/survey?t=${s.token}&optout=1`,
       });
     }
   }

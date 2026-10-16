@@ -1,10 +1,12 @@
 // The /survey page — the follow-up survey emailed the morning after a
 // gathering. The ?t= token in the link says who it's for; the questions are
-// the shared set edited on the admin's Survey tab.
+// the shared set edited on the admin's Survey tab. With &optout=1 (the link
+// at the foot of every survey email) it asks to stop feedback emails instead.
 import { esc } from './util.js';
 
 const view = document.getElementById('view');
-const token = new URLSearchParams(location.search).get('t') || '';
+const params = new URLSearchParams(location.search);
+const token = params.get('t') || '';
 
 const message = (title, lead) => {
   view.innerHTML = `<h1 class="page-title">${esc(title)}</h1>
@@ -53,7 +55,8 @@ function render(data) {
     <form id="f" novalidate>
       ${data.questions.map(questionHTML).join('')}
       <button type="submit" class="page-btn page-btn--full" id="go">Send my answers</button>
-    </form>`;
+    </form>
+    <p class="page-fine"><a href="?t=${encodeURIComponent(token)}&optout=1">Stop sending me feedback emails</a></p>`;
 
   const form = document.getElementById('f');
   form.addEventListener('submit', async (e) => {
@@ -102,10 +105,40 @@ function fail(form, msg, ids) {
   if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// Nothing changes on page load — scanners and prefetchers follow links in
+// email — so opting out takes one confirming click.
+function optoutMode() {
+  view.innerHTML = `
+    <h1 class="page-title">No more feedback emails?</h1>
+    <p class="page-lead">We'll stop sending you surveys after gatherings. You'll still get
+      the details for any gathering you RSVP to.</p>
+    <button type="button" class="page-btn page-btn--full" id="go">Yes, stop feedback emails</button>
+    <p class="page-fine"><a href="?t=${encodeURIComponent(token)}">No thanks, take me to the survey</a></p>`;
+  document.getElementById('go').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = 'One moment…';
+    try {
+      const r = await fetch('/api/survey', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token, action: 'optout' }),
+      });
+      const d = await r.json().catch(() => null);
+      if (r.status === 404) return message('Link not recognised', 'This link doesn’t work any more. Email contact@ingreatcompanysav.com and we’ll take you off by hand.');
+      if (!r.ok || !d || !d.ok) throw new Error();
+      message('Done', 'You won’t get any more feedback surveys from us.');
+    } catch {
+      btn.disabled = false; btn.textContent = 'Yes, stop feedback emails';
+      fail(view, 'That didn’t go through. Please try again in a moment.', []);
+    }
+  });
+}
+
 const thanks = () => message('Thank you!', 'Your answers are in. We read every one — see you at the next gathering.');
 
 async function start() {
   if (!token) return message('Survey link missing', 'This page needs the link from your survey email. Try clicking it again.');
+  if (params.get('optout')) return optoutMode();
   try {
     const r = await fetch('/api/survey?t=' + encodeURIComponent(token));
     if (r.status === 404) return message('Link not recognised', 'This survey link doesn’t work any more. Thanks for thinking of us all the same.');

@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS surveys (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_surveys_person ON surveys(event_id, email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_surveys_token ON surveys(token);
 
+-- Addresses that clicked "stop sending me feedback surveys". Checked before a
+-- survey row is ever created, for every gathering from then on.
+CREATE TABLE IF NOT EXISTS survey_optouts (
+  email       TEXT PRIMARY KEY,
+  created_at  TEXT DEFAULT (datetime('now'))
+);
+
 -- A starting set the client can edit. Only seeded into an empty table.
 INSERT INTO survey_questions (label, kind, options, required, sort_order)
 SELECT * FROM (

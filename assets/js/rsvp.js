@@ -50,7 +50,7 @@ function build() {
       <div data-igc="ts"></div>
       <p class="rsvp__msg" data-igc="msg" role="status" aria-live="polite"></p>
       <button type="submit" class="rsvp__submit" data-igc="submit">Send RSVP</button>
-      <p class="rsvp__fine">By RSVPing, you agree we can email you about this event.
+      <p class="rsvp__fine">By RSVPing, you agree we can email you about this event, including a short feedback survey afterward.
         We never sell your info. <a href="#privacy">Privacy Policy</a></p>
     </form>`;
   document.body.appendChild(dlg);

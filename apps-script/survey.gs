@@ -85,7 +85,9 @@ function textBody_(s) {
   return 'Hi ' + (s.firstName || 'there') + ',\n\n' +
     'Thank you for coming to ' + s.eventTitle + '! We would love to hear how it went — ' +
     'it takes about two minutes:\n\n' + s.url + '\n\n' +
-    'See you at the next one,\nIn Great Company';
+    'See you at the next one,\nIn Great Company\n\n' +
+    'You got this because you RSVP\'d to ' + s.eventTitle + '. ' +
+    'To stop feedback emails: ' + s.optoutUrl;
 }
 
 function htmlBody_(s) {
@@ -97,5 +99,7 @@ function htmlBody_(s) {
     '<p>Thank you for coming to <b>' + esc(s.eventTitle) + '</b>! We would love to hear how it went — it takes about two minutes.</p>' +
     '<p style="margin:28px 0"><a href="' + esc(s.url) + '" style="background:#EF2E9F;color:#03191B;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:999px">Share your thoughts</a></p>' +
     '<p>See you at the next one,<br>In Great Company</p>' +
+    '<p style="font-size:12px;color:#5b6b6c;margin-top:32px">You got this because you RSVP\'d to ' + esc(s.eventTitle) + '. ' +
+    '<a href="' + esc(s.optoutUrl) + '" style="color:#5b6b6c">Stop sending me feedback emails</a></p>' +
     '</div>';
 }

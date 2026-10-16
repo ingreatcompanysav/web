@@ -411,7 +411,7 @@ function privacyView() {
   <section class="section section--page">
     <div class="container">
       <div class="legal">
-        <p class="legal__updated">Last updated: August 2026</p>
+        <p class="legal__updated">Last updated: October 2026</p>
 
         <p>In Great Company (“we,” “us,” or “our”) is a women’s social group based in Savannah, Georgia. This policy explains what information we collect through <strong>ingreatcompanysav.com</strong>, why we collect it, and the choices you have.</p>
 
@@ -423,19 +423,22 @@ function privacyView() {
           <li><strong>Number of guests</strong>, so we can plan the right amount of space.</li>
           <li><strong>Any note you add</strong>, anything you’d like us to know, shared at your discretion.</li>
         </ul>
-        <p>We only collect what you choose to type into the RSVP form. We don’t use tracking cookies or third-party advertising trackers on this site.</p>
+        <p>When you join our newsletter, we ask for your <strong>name</strong> and <strong>email address</strong>, so we can send it to you.</p>
+        <p>After a gathering, we may email you a short feedback survey. If you choose to answer it, we keep <strong>your answers</strong> to help plan better gatherings. Answering is always optional.</p>
+        <p>We only collect what you choose to type into our forms. We don’t use tracking cookies or third-party advertising trackers on this site.</p>
 
         <h2>How we use it</h2>
-        <p>We use your information solely to organize our gatherings: confirming your RSVP, planning for the number of attendees, and contacting you about the event you signed up for or future In Great Company events.</p>
+        <p>We use your information solely to organize our gatherings: confirming your RSVP, planning for the number of attendees, and contacting you about the event you signed up for or future In Great Company events. That includes one feedback survey, emailed the morning after a gathering you RSVP’d to, and our newsletter if you’ve joined it.</p>
 
         <h2>What we never do</h2>
         <p>We do not sell, rent, or trade your information. We do not share it with advertisers or any third party outside of what’s needed to run the site and communicate with you (for example, the secure services that host our website and store RSVPs on our behalf).</p>
 
         <h2>How your information is stored</h2>
-        <p>RSVPs are stored using reputable third-party service providers (such as Cloudflare) that host our website and database. We take reasonable steps to keep your information secure, though no method of storage is ever completely guaranteed.</p>
+        <p>Your information is stored using reputable third-party service providers that work on our behalf: Cloudflare hosts our website and database, and Google keeps our working copy of RSVPs and newsletter signups (Google Sheets) and sends our emails (Gmail). We take reasonable steps to keep your information secure, though no method of storage is ever completely guaranteed.</p>
 
         <h2>Your choices</h2>
-        <p>You’re always in control of your information. If you’d like us to update or delete what we have on file, just email us at <a href="${LINKS.email}">${LINKS.emailText}</a> and we’ll take care of it. If we ever send you event emails, every one will include a way to unsubscribe.</p>
+        <p>You’re always in control of your information. If you’d like us to update or delete what we have on file, just email us at <a href="${LINKS.email}">${LINKS.emailText}</a> and we’ll take care of it.</p>
+        <p>Every newsletter and every feedback survey includes a link to stop receiving them, and one click is all it takes. You can also email us and we’ll stop by hand. Opting out of these won’t affect the details we send about a gathering you’ve RSVP’d to.</p>
 
         <h2>Age</h2>
         <p>Our gatherings are intended for adults. If a particular event has its own age requirement, we’ll say so on that event’s page.</p>
