@@ -71,6 +71,8 @@ export const RESOURCES = {
       f('calendar_uid', null, { admin: true, managed: true }),
       // Email the follow-up survey at 9am the day after (api/survey-due.js).
       f('survey_auto', flag(0), { admin: true }),
+      // Email RSVPs a reminder about 24 hours before (api/reminders-due.js).
+      f('remind_auto', flag(0), { admin: true }),
       f('updated_at', null, { admin: true, managed: true }),
     ],
     // Computed on the way out. `is_past` comes from publicSelect above.

@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS events (
   -- 1 = email the follow-up survey to RSVPs at 9am the day after. See
   -- functions/api/survey-due.js.
   survey_auto   INTEGER DEFAULT 0,
+  -- 1 = email RSVPs a reminder about 24 hours before. See
+  -- functions/api/reminders-due.js.
+  remind_auto   INTEGER DEFAULT 0,
   updated_at    TEXT    DEFAULT (datetime('now'))
 );
 
@@ -183,3 +186,12 @@ CREATE TABLE IF NOT EXISTS team (
   sort_order  INTEGER DEFAULT 0,
   updated_at  TEXT    DEFAULT (datetime('now'))
 );
+
+-- 24-hour reminders — see db/migration-reminders.sql for the notes.
+CREATE TABLE IF NOT EXISTS reminders (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id    TEXT NOT NULL,
+  email       TEXT NOT NULL,
+  sent_at     TEXT    DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reminders_person ON reminders(event_id, email);

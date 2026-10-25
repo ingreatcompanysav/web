@@ -330,6 +330,35 @@ curl -s -X POST https://ingreatcompanysav.com/api/survey-due -H 'content-type: a
 Careful: that call **claims** whatever is due, the same as the script does, so
 those people won't then be emailed. Only run it when nothing should be.
 
+## 6h. Reminder emails — about 24 hours before
+
+Tick **Email a reminder** on a gathering in the admin and everyone who RSVP'd
+gets one email from the group's Gmail roughly 24 hours before it starts (the
+date, time, place and a link to the event page). It rides on the same Apps
+Script as the survey (`apps-script/survey.gs`), which checks
+`functions/api/reminders-due.js` **hourly**, so mail lands 23–24 hours ahead.
+The start time is read from the gathering's real date + time (Savannah time;
+no time means 9am).
+
+Rules, enforced on the server: **one reminder per person per gathering** (a
+`reminders` row per address, written the moment it's handed to the script),
+and people who RSVP'd inside the last 24 hours are skipped — they've just had
+their confirmation. Reminders carry no opt-out link: they're about a gathering
+the person signed up for, which the privacy policy already covers.
+
+1. **Migrate the database** (once per database):
+   ```bash
+   npx wrangler d1 execute igc --remote --file=./db/migration-reminders.sql
+   ```
+2. **Update the Apps Script** — paste the current `apps-script/survey.gs` over
+   the old code and run `installTrigger` once more. It adds the hourly
+   `sendDueReminders` trigger beside the 9am survey one. (Not set up yet?
+   Follow 6g step 2; this comes with it.)
+
+**Checking it.** `sendDueReminders` run by hand logs `Reminders: N sent`. As
+with surveys, poking `/api/reminders-due` with `"action":"due"` **claims**
+whatever is due, so those people won't then be emailed.
+
 ## 7. Final verification
 
 - `/admin.html` → Access login → you can add/edit gatherings and quotes and see

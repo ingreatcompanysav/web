@@ -230,6 +230,7 @@
         <li>Edit, add, reorder, or remove gatherings. Pick dates and times from the calendar/clock — the ID fills in automatically.</li>
         <li>Gatherings on the group's <b>Google Calendar</b> publish themselves: within a few hours of an event being added there it appears here and on the site, marked <b>from calendar</b>, in date order. The calendar owns its title, date, time, place, link and write-up — change those in the calendar (or here; whichever was edited last wins) — while the photo, tone, category and price live only here. To keep a calendar event off the site, <b>hide</b> it or remove it from the calendar; deleting it here just brings it back on the next sync.</li>
         <li>Already on Facebook? For a public event, click <b>Create from Facebook</b> and paste its link — the title, date, place and photo come across, and you fill in the time and blurb. For any event, including private group ones, open it on Facebook, choose <b>···</b> → <b>Add to Calendar</b> to download its calendar file, then use <b>Add from calendar file</b> — that brings the time and write-up too, but no photo.</li>
+        <li>Tick <b>Email a reminder</b> on a gathering and everyone who RSVP'd gets one email from the group's Gmail about <b>24 hours before</b> it starts, with the date, time, place and a link. Set the time so it lands at the right hour; a gathering with no time is treated as starting at 9am. Anyone who RSVPs inside those last 24 hours isn't sent one — they've only just had their confirmation.</li>
         <li>Changes live only in this page until you click <b>Save changes</b>, which writes them to the live site's database.</li>
         <li>The public site updates immediately — no GitHub upload, no redeploy.</li>
       </ol>
@@ -918,6 +919,14 @@ const SURVEY_HINT = "— 9am the day after, to everyone who RSVP'd (once each)."
 const SURVEY_OFF_HINT = (e) => e.eventDate
   ? "— this gathering is more than a day past, so a survey can't be scheduled."
   : "— set the real date above first.";
+// Reminders go out about 24 hours ahead, so they need a real date that
+// hasn't passed. Ticking one less than a day out still reminds everyone who
+// RSVP'd before the 24 hours began, on the next hourly run.
+const remindAllowed = (e) => /^\d{4}-\d{2}-\d{2}$/.test(e.eventDate || "") && !isEventPast(e);
+const REMIND_HINT = "— about 24 hours before it starts, to everyone who RSVP'd (once each).";
+const REMIND_OFF_HINT = (e) => e.eventDate
+  ? "— this gathering has already happened."
+  : "— set the real date above first.";
 function isoToDisplay(iso){
   if(!iso) return "";
   const [y,m,d] = iso.split("-").map(Number);
@@ -1075,8 +1084,8 @@ $("#icsEventsFile").addEventListener("change", (e) => {
   e.target.value = "";
 });
 
-const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden","surveyAuto"];
-const blankEvent = () => ({ id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0,surveyAuto:0 });
+const EFIELDS = ["id","title","date","time","place","category","tone","price","stripeUrl","facebookUrl","blurb","detail","note","image","eventDate","hidden","surveyAuto","remindAuto"];
+const blankEvent = () => ({ id:"",title:"",date:"",time:"",place:"",category:"",tone:"cyan",price:0,stripeUrl:"",facebookUrl:"",blurb:"",detail:"",note:"",image:"",eventDate:"",hidden:0,surveyAuto:0,remindAuto:0 });
 
 collection({
   key: "events",
@@ -1143,6 +1152,7 @@ collection({
             + (e.hidden ? ' <span class="badge off">hidden</span>' : '')
             + (e.calendarUid ? ' <span class="badge off" title="Published from the Google Calendar — its title, date, time, place and write-up follow the calendar">from calendar</span>' : '')
             + (isEventPast(e) ? ' <span class="badge off">past</span>' : '')
+            + (e.remindAuto && remindAllowed(e) ? ' <span class="badge off" title="Reminder emails about 24 hours before">reminder</span>' : '')
             + (e.surveyAuto && surveyAllowed(e) ? ' <span class="badge off" title="Follow-up survey emails at 9am the day after">survey</span>' : ''),
       dim: !!e.hidden,
     };
@@ -1176,6 +1186,8 @@ collection({
     { key:"note", label:"Photo caption", hint:"text shown only when there's no photo above", type:"textarea", full:true, placeholder:"Photo — ..." },
     { key:"hidden", label:"Hide this gathering", type:"check",
       hint:"— for a draft or a cancelled event; it won't show anywhere on the site. Past events drop off on their own by date." },
+    { key:"remindAuto", label:"Email a reminder", type:"check",
+      disabled: !remindAllowed(e), hint: remindAllowed(e) ? REMIND_HINT : REMIND_OFF_HINT(e) },
     { key:"surveyAuto", label:"Email the follow-up survey", type:"check",
       disabled: !surveyAllowed(e), hint: surveyAllowed(e) ? SURVEY_HINT : SURVEY_OFF_HINT(e) },
   ],
@@ -1187,7 +1199,7 @@ collection({
     if(role === "date-pick"){
       col.rows[i].eventDate = el.value;             // real ISO date — drives past/upcoming
       col.setField(i, "date", isoToDisplay(el.value));
-      syncSurveyBox(col, i);
+      syncEmailBoxes(col, i);
       if(!col.isExisting(col.rows[i].id) && (col.rows[i].title||"").trim()) col.setField(i, "id", slugFor(col.rows, i));
     } else {
       col.setField(i, "time", timeInputToDisplay(el.value));
@@ -1206,18 +1218,24 @@ collection({
   afterLoad: () => buildRsvpFilter(),
 });
 
-// The date decides whether the survey box can be ticked, so keep it in step
-// as the date picker moves — without re-rendering the card being edited.
-function syncSurveyBox(col, i){
+// The date decides whether the reminder and survey boxes can be ticked, so
+// keep them in step as the date picker moves — without re-rendering the card
+// being edited.
+function syncEmailBoxes(col, i){
   const e = col.rows[i];
-  const box = document.getElementById(`events-surveyAuto-${i}`);
-  if(!box) return;
-  const ok = surveyAllowed(e);
-  if(!ok) e.surveyAuto = 0;
-  box.disabled = !ok;
-  box.checked = ok && !!e.surveyAuto;
-  const hint = box.parentElement.querySelector(".hint");
-  if(hint) hint.textContent = ok ? SURVEY_HINT : SURVEY_OFF_HINT(e);
+  for(const [key, allowed, on, off] of [
+    ["remindAuto", remindAllowed, REMIND_HINT, REMIND_OFF_HINT],
+    ["surveyAuto", surveyAllowed, SURVEY_HINT, SURVEY_OFF_HINT],
+  ]){
+    const box = document.getElementById(`events-${key}-${i}`);
+    if(!box) continue;
+    const ok = allowed(e);
+    if(!ok) e[key] = 0;
+    box.disabled = !ok;
+    box.checked = ok && !!e[key];
+    const hint = box.parentElement.querySelector(".hint");
+    if(hint) hint.textContent = ok ? on : off(e);
+  }
 }
 
 /* ---- quotes ---- */
