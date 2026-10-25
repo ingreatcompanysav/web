@@ -1,4 +1,4 @@
-// Column definitions for the three admin-editable resources.
+// Column definitions for the admin-editable resources.
 //
 // Events, quotes and links used to spell their columns out five times each —
 // in the INSERT, in the UPDATE, in a *FromBody parser, in a *ToPublic mapper
@@ -117,6 +117,24 @@ export const RESOURCES = {
       f('subtitle', str),
       f('icon', oneOf(LINK_ICONS, '')),
       f('tone', oneOf(LINK_TONES, 'rose')),
+      f('active', flag(1), { admin: true }),
+      f('sort_order', int(0), { admin: true }),
+      f('updated_at', null, { admin: true, managed: true }),
+    ],
+  },
+
+  // The organisers' profile cards on the Who we are page. The public read is
+  // api/about.js, which bundles them with the page's intro text.
+  team: {
+    table: 'team',
+    id: { column: 'id', numeric: true },
+    order: 'sort_order ASC, id ASC',
+    publicWhere: 'active = 1',
+    fields: [
+      f('name', trim, { required: 'name_required' }),
+      f('role', str),
+      f('bio', str),
+      f('photo', str),
       f('active', flag(1), { admin: true }),
       f('sort_order', int(0), { admin: true }),
       f('updated_at', null, { admin: true, managed: true }),

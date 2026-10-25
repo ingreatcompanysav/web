@@ -1,11 +1,11 @@
 // POST /api/admin/reorder — batch-update sort order.
-// Body: { type: 'events' | 'quotes' | 'photos' | 'links' | 'questions', order: [id, id, ...] }
+// Body: { type: 'events' | 'quotes' | 'photos' | 'links' | 'questions' | 'team', order: [id, id, ...] }
 // The array position becomes the new sort_order. Every table but events uses
 // numeric ids.
 import { json } from '../../_shared/db.js';
 
 // The admin's tab name -> its table. Only events uses text ids.
-const TABLES = { events: 'events', quotes: 'quotes', photos: 'photos', links: 'links', questions: 'survey_questions' };
+const TABLES = { events: 'events', quotes: 'quotes', photos: 'photos', links: 'links', questions: 'survey_questions', team: 'team' };
 
 export async function onRequestPost({ request, env }) {
   let body;

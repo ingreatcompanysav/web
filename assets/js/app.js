@@ -1,6 +1,6 @@
 // In Great Company — client app. Recreates the original SPA (routes: home,
-// gatherings, event, privacy) as modular, data-driven views.
-import { loadEvents, loadVoices, loadPhotos } from './api.js';
+// gatherings, event, about, privacy) as modular, data-driven views.
+import { loadEvents, loadVoices, loadPhotos, loadAbout } from './api.js';
 import { AVATAR_BY_NAME, LINKS } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
 import { esc } from './util.js';
@@ -233,6 +233,7 @@ function footer() {
       <div class="footer__col">
         <span class="igc-eyebrow footer__head">Wander over</span>
         <button class="footer__link" data-nav="gatherings" style="text-align:left;background:none;border:0;cursor:pointer">Gatherings</button>
+        <button class="footer__link" data-nav="about" style="text-align:left;background:none;border:0;cursor:pointer">Who we are</button>
       </div>
       <div class="footer__col">
         <span class="igc-eyebrow footer__head">Say hi</span>
@@ -399,6 +400,53 @@ function eventView(state) {
   </section>`;
 }
 
+// Who we are: the group's own words (paragraphs split on blank lines), then a
+// card per organiser. Both come from the admin's Who we are tab.
+function teamCard(p) {
+  const initial = (p.name || '').trim().charAt(0).toUpperCase();
+  const photo = p.photo
+    ? `<img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy">`
+    : `<span aria-hidden="true">${esc(initial)}</span>`;
+  const bio = (p.bio || '').split(/\n\s*\n/).filter((t) => t.trim())
+    .map((t) => `<p>${esc(t.trim())}</p>`).join('');
+  return `<article class="team-card">
+    <div class="team-card__photo">${photo}</div>
+    <h3 class="team-card__name">${esc(p.name)}</h3>
+    ${p.role ? `<div class="igc-eyebrow team-card__role">${esc(p.role)}</div>` : ''}
+    ${bio ? `<div class="team-card__bio">${bio}</div>` : ''}
+  </article>`;
+}
+
+function aboutView(state) {
+  const a = state.about;
+  const paras = a ? (a.intro || '').split(/\n\s*\n/).filter((t) => t.trim()) : [];
+  const team = a ? a.team : [];
+  let body;
+  if (!state.loaded) body = `<p class="prose-lead" aria-live="polite">Loading…</p>`;
+  else if (!a) body = `<p class="prose-lead">We couldn’t load this page just now. ${button({ label: 'Try again', variant: 'ghost', action: 'retry-load' })}</p>`;
+  else body = '';
+  return `
+  <section class="story-hero">
+    <div class="story-hero__inner">
+      <div class="igc-eyebrow">Who we are</div>
+      <h1 class="story-hero__title">The women behind the ${scriptWord('table')}</h1>
+      ${paras.length ? `<p class="story-hero__lead">${esc(paras[0].trim())}</p>` : ''}
+    </div>
+  </section>
+  ${body ? `<section class="section section--page"><div class="container">${body}</div></section>` : ''}
+  ${paras.length > 1 ? `
+  <section class="section section--page">
+    <div class="container"><div class="legal about-prose">${paras.slice(1).map((t) => `<p>${esc(t.trim())}</p>`).join('')}</div></div>
+  </section>` : ''}
+  ${team.length ? `
+  <section class="section section--sunk">
+    <div class="container">
+      ${sectionHeading({ center: true, eyebrow: 'Say hello', title: 'Meet the', script: 'hosts' })}
+      <div class="team-grid mt-8">${team.map(teamCard).join('')}</div>
+    </div>
+  </section>` : ''}`;
+}
+
 function privacyView() {
   return `
   <section class="story-hero">
@@ -480,7 +528,7 @@ const navLinks = [...document.querySelectorAll('#nav .nav__link')];
 const sectionsEl = document.getElementById('sections');
 
 const state = {
-  route: 'home', events: [], voices: [], photos: {}, eventId: null, qty: 1, purchased: false,
+  route: 'home', events: [], voices: [], photos: {}, about: null, eventId: null, qty: 1, purchased: false,
   // loaded: the fetches have settled. *Failed: they settled badly. Before
   // `loaded`, the views must not assert anything about what is on the calendar.
   loaded: false, eventsFailed: false, voicesFailed: false,
@@ -497,6 +545,7 @@ function viewFor(route) {
   switch (route) {
     case 'home': return homeView(state);
     case 'gatherings': return gatheringsView(state);
+    case 'about': return aboutView(state);
     case 'privacy': return privacyView();
     case 'event': return eventView(state);
     default: return homeView(state);
@@ -656,12 +705,13 @@ function syncEventSchema(events) {
 
 /* ------------------------------------------------------------- bootstrap */
 async function fetchAll() {
-  const [events, voices, photos] = await Promise.all([loadEvents(), loadVoices(), loadPhotos()]);
+  const [events, voices, photos, about] = await Promise.all([loadEvents(), loadVoices(), loadPhotos(), loadAbout()]);
   state.eventsFailed = events === null;
   state.voicesFailed = voices === null;
   state.events = events || [];
   state.voices = voices || [];
   state.photos = photos;
+  state.about = about;
   state.loaded = true;
   render();
   syncEventSchema(state.events);

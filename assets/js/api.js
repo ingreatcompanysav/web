@@ -1,4 +1,4 @@
-// Backend data access: /api/events, /api/quotes, /api/photos.
+// Backend data access: /api/events, /api/quotes, /api/photos, /api/about.
 //
 // No loader ever invents content: a fabricated gathering would be worse than a
 // blank calendar, because someone would show up to it. What they do instead is
@@ -53,4 +53,11 @@ export async function loadPhotos() {
     join: pick(raw.join),
     gallery: Array.isArray(raw.gallery) ? raw.gallery : [],
   };
+}
+
+// The Who we are page: { intro, team }. null on failure, same reasoning as
+// loadEvents.
+export async function loadAbout() {
+  const d = await getJson('/api/about');
+  return d && Array.isArray(d.team) ? d : null;
 }

@@ -165,3 +165,21 @@ CREATE TABLE IF NOT EXISTS survey_optouts (
   email       TEXT PRIMARY KEY,
   created_at  TEXT DEFAULT (datetime('now'))
 );
+
+-- "Who we are" page — see db/migration-who-we-are.sql for the notes.
+CREATE TABLE IF NOT EXISTS site_text (
+  key         TEXT PRIMARY KEY,
+  value       TEXT    DEFAULT '',
+  updated_at  TEXT    DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS team (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,
+  role        TEXT    DEFAULT '',
+  bio         TEXT    DEFAULT '',
+  photo       TEXT    DEFAULT '',
+  active      INTEGER DEFAULT 1,
+  sort_order  INTEGER DEFAULT 0,
+  updated_at  TEXT    DEFAULT (datetime('now'))
+);
