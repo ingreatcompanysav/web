@@ -3,6 +3,7 @@
 import { loadEvents, loadVoices, loadPhotos, loadAbout } from './api.js';
 import { AVATAR_BY_NAME, LINKS } from './data.js';
 import { openRSVP, closeRSVP } from './rsvp.js';
+import { openProfile, closeProfile } from './profile.js';
 import { esc } from './util.js';
 import { mountSignup } from './signup.js';
 
@@ -411,13 +412,13 @@ function eventView(state) {
 
 // Who we are: the group's own words (paragraphs split on blank lines), then a
 // card per organiser. Both come from the admin's Who we are tab.
-function teamCard(p) {
+// The pieces a profile is drawn from, shared by the card and the popup.
+function profileParts(p) {
   const initial = (p.name || '').trim().charAt(0).toUpperCase();
   const photo = p.photo
     ? `<img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy">`
     : `<span aria-hidden="true">${esc(initial)}</span>`;
-  const bio = (p.bio || '').split(/\n\s*\n/).filter((t) => t.trim())
-    .map((t) => `<p>${esc(t.trim())}</p>`).join('');
+  const paras = (p.bio || '').split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean);
   // Networks show as icons; a custom link shows its own button text.
   const links = (p.links || []).map((l) => {
     const ext = l.kind === 'email' ? '' : ' target="_blank" rel="noopener noreferrer"';
@@ -425,13 +426,45 @@ function teamCard(p) {
       ? `<a class="team-card__link team-card__link--text" href="${esc(l.url)}"${ext}>${ICONS.website}<span>${esc(l.label || 'Website')}</span></a>`
       : `<a class="team-card__link" href="${esc(l.url)}"${ext} aria-label="${esc(l.kind === 'email' ? `Email ${p.name}` : `${p.name} on ${LINK_NAMES[l.kind]}`)}" title="${esc(LINK_NAMES[l.kind])}">${ICONS[l.kind] || ICONS.website}</a>`;
   }).join('');
-  return `<article class="team-card">
+  return {
+    photo, paras,
+    role: p.role ? `<div class="igc-eyebrow team-card__role">${esc(p.role)}</div>` : '',
+    links: links ? `<div class="team-card__links">${links}</div>` : '',
+  };
+}
+
+// Bios run long, so the card shows the opening lines and the rest opens in a
+// popup (profile.js). The whole card is clickable; the button is the part a
+// keyboard or screen reader reaches.
+function teamCard(p) {
+  const { photo, paras, role, links } = profileParts(p);
+  return `<article class="team-card${paras.length ? ' team-card--opens' : ''}"${paras.length ? ` data-action="open-profile" data-id="${esc(p.id)}"` : ''}>
     <div class="team-card__photo">${photo}</div>
     <h3 class="team-card__name">${esc(p.name)}</h3>
-    ${p.role ? `<div class="igc-eyebrow team-card__role">${esc(p.role)}</div>` : ''}
-    ${links ? `<div class="team-card__links">${links}</div>` : ''}
-    ${bio ? `<div class="team-card__bio">${bio}</div>` : ''}
+    ${role}
+    ${links}
+    ${paras.length ? `
+    <p class="team-card__teaser">${esc(paras[0])}</p>
+    <button type="button" class="team-card__more" aria-haspopup="dialog" aria-label="Read more about ${esc(p.name)}">Read more</button>` : ''}
   </article>`;
+}
+
+function profilePopup(p) {
+  const { photo, paras, role, links } = profileParts(p);
+  return `<div class="profile__head">
+      <div class="team-card__photo">${photo}</div>
+      <div>
+        <h2 class="team-card__name">${esc(p.name)}</h2>
+        ${role}
+        ${links}
+      </div>
+    </div>
+    <div class="profile__bio">${paras.map((t) => `<p>${esc(t)}</p>`).join('')}</div>`;
+}
+
+function showProfile(id, cardEl) {
+  const p = state.about && state.about.team.find((x) => String(x.id) === id);
+  if (p) openProfile(profilePopup(p), cardEl);
 }
 
 function aboutView(state) {
@@ -617,6 +650,8 @@ document.addEventListener('click', (e) => {
     case 'open-facebook': window.open(LINKS.facebook, '_blank', 'noopener'); break;
     case 'open-fb-event': if (id) window.open(id, '_blank', 'noopener'); break;
     case 'open-event': location.hash = `#event/${id}`; break;
+    // A link inside the card goes where it says, not into the popup.
+    case 'open-profile': if (!e.target.closest('a')) showProfile(id, act); break;
     case 'inc-qty': state.qty = Math.min(6, state.qty + 1); render(); refocusSeat('inc-qty'); break;
     case 'dec-qty': state.qty = Math.max(1, state.qty - 1); render(); refocusSeat('dec-qty'); break;
     case 'reset-purchase': state.purchased = false; state.qty = 1; render(); break;
@@ -651,7 +686,7 @@ function buyCurrent() {
   });
 }
 
-window.addEventListener('hashchange', () => { closeRSVP(); render(); });
+window.addEventListener('hashchange', () => { closeRSVP(); closeProfile({ instant: true }); render(); });
 window.addEventListener('scroll', syncNavScroll, { passive: true });
 
 /* --------------------------------------------------------- structured data */
