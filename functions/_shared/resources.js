@@ -34,6 +34,26 @@ const f = (col, parse, opts = {}) => ({ col, key: camel(col), parse, ...opts });
 export const LINK_ICONS = ['link', 'instagram', 'facebook', 'email', 'calendar', 'ticket', 'heart'];
 export const LINK_TONES = ['rose', 'cyan', 'gold', 'cream'];
 export const QUESTION_KINDS = ['rating', 'text', 'longtext', 'choice', 'yesno'];
+// A profile's links. Keys match the icon set in assets/js/app.js; 'website'
+// is the custom one, shown with its own label.
+export const PROFILE_LINK_KINDS = ['instagram', 'tiktok', 'facebook', 'linkedin', 'x', 'threads', 'youtube', 'email', 'website'];
+
+// [{kind, url, label}] in, cleaned JSON text out. Drops anything without a
+// known kind or a usable address; a bare email address becomes a mailto:.
+function profileLinks(v) {
+  let list = v;
+  if (typeof v === 'string') { try { list = JSON.parse(v); } catch { list = []; } }
+  if (!Array.isArray(list)) list = [];
+  const out = [];
+  for (const l of list.slice(0, 10)) {
+    if (!l || !PROFILE_LINK_KINDS.includes(l.kind)) continue;
+    let url = trim(l.url);
+    if (l.kind === 'email' && /^[^\s@:]+@[^\s@]+$/.test(url)) url = 'mailto:' + url;
+    if (!/^(https?:\/\/|mailto:)\S+$/i.test(url)) continue;
+    out.push({ kind: l.kind, url, label: trim(l.label).slice(0, 40) });
+  }
+  return JSON.stringify(out);
+}
 
 export const RESOURCES = {
   events: {
@@ -137,10 +157,13 @@ export const RESOURCES = {
       f('role', str),
       f('bio', str),
       f('photo', str),
+      f('links', profileLinks),
       f('active', flag(1), { admin: true }),
       f('sort_order', int(0), { admin: true }),
       f('updated_at', null, { admin: true, managed: true }),
     ],
+    // Stored as JSON text, handed out as the array.
+    derive: { links: (r) => JSON.parse(profileLinks(r.links)) },
   },
 
   // The follow-up survey's one shared question set. Only the survey page

@@ -14,12 +14,15 @@ CREATE TABLE IF NOT EXISTS site_text (
 
 -- The organisers' profile cards, in sort_order. photo is an /img/ URL from
 -- the admin's upload (or any URL); empty falls back to a monogram.
+-- links is a JSON array of {kind, url, label}: kind is a social network key
+-- (instagram, tiktok, ...) or 'website' for a custom link with its own label.
 CREATE TABLE IF NOT EXISTS team (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL,
   role        TEXT    DEFAULT '',
   bio         TEXT    DEFAULT '',
   photo       TEXT    DEFAULT '',
+  links       TEXT    DEFAULT '[]',
   active      INTEGER DEFAULT 1,
   sort_order  INTEGER DEFAULT 0,
   updated_at  TEXT    DEFAULT (datetime('now'))

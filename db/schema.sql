@@ -182,6 +182,7 @@ CREATE TABLE IF NOT EXISTS team (
   role        TEXT    DEFAULT '',
   bio         TEXT    DEFAULT '',
   photo       TEXT    DEFAULT '',
+  links       TEXT    DEFAULT '[]',   -- JSON [{kind, url, label}]
   active      INTEGER DEFAULT 1,
   sort_order  INTEGER DEFAULT 0,
   updated_at  TEXT    DEFAULT (datetime('now'))

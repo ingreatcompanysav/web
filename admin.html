@@ -113,6 +113,10 @@
   input[readonly]:focus{outline:none;border-color:var(--line)}
   textarea{resize:vertical;min-height:64px}
   .about-intro{margin-bottom:18px}
+  .plinks{display:flex;flex-direction:column;gap:8px}
+  .plinks .row select{width:150px;flex:0 0 auto}
+  .plinks .row .pl-label{flex:0 1 160px}
+  .plinks > button{align-self:flex-start}
   .row{display:flex;gap:8px;align-items:center}
   .row input[type=date],.row input[type=time]{max-width:180px;flex:0 0 auto}
   .row input[type=text]{flex:1 1 auto}
@@ -1327,6 +1331,63 @@ collection({
    them rides along on the same load and save, so one Save covers the page. */
 $("#aboutIntro").addEventListener("input", () => markDirty("team"));
 
+// A profile's links: any number of rows, each a network from the list (or a
+// custom link with its own label) plus its address. Keys match the server's
+// PROFILE_LINK_KINDS and the icon set in assets/js/app.js.
+const PLINK_KINDS = [
+  ["instagram","Instagram"], ["tiktok","TikTok"], ["facebook","Facebook"], ["linkedin","LinkedIn"],
+  ["x","X (Twitter)"], ["threads","Threads"], ["youtube","YouTube"], ["email","Email"], ["website","Custom link"],
+];
+const PLINK_PLACEHOLDER = { email:"name@example.com", website:"https://…", instagram:"https://instagram.com/…", tiktok:"https://tiktok.com/@…" };
+
+// These controls carry data-pl-* rather than data-i/data-k, so the
+// collection's generic listeners leave them alone; the ones below own them.
+function plinksHTML(i, links){
+  const rows = links.map((l, j) => `
+        <div class="row">
+          <select data-pl-i="${i}" data-pl-j="${j}" data-pl-f="kind">${PLINK_KINDS.map(([v, t]) =>
+            `<option value="${v}"${v === l.kind ? " selected" : ""}>${t}</option>`).join("")}</select>
+          ${l.kind === "website" ? `<input type="text" class="pl-label" data-pl-i="${i}" data-pl-j="${j}" data-pl-f="label" value="${escapeAttr(l.label)}" placeholder="Button text, e.g. My shop">` : ""}
+          <input type="text" data-pl-i="${i}" data-pl-j="${j}" data-pl-f="url" value="${escapeAttr(l.url)}" placeholder="${PLINK_PLACEHOLDER[l.kind] || "https://…"}">
+          <button type="button" class="icon ghost" data-pl-act="del" data-pl-i="${i}" data-pl-j="${j}" title="Remove link">✕</button>
+        </div>`).join("");
+  return `<div class="plinks" data-plinks="${i}">${rows}
+        <button type="button" class="mini ghost" data-pl-act="add" data-pl-i="${i}">+ Add link</button></div>`;
+}
+
+// No scheme typed? Assume the web (or mail, for an address with an @).
+function cleanUrl(l){
+  const u = (l.url || "").trim();
+  if(!u || /^(https?:|mailto:)/i.test(u)) return u;
+  return (l.kind === "email" || /^[^\s@\/]+@[^\s@\/]+$/.test(u)) && !u.includes("/") ? "mailto:" + u : "https://" + u;
+}
+
+const teamList = $("#teamList");
+function plinksRedraw(i){
+  const box = teamList.querySelector(`[data-plinks="${i}"]`);
+  if(box) box.outerHTML = plinksHTML(i, COLLECTIONS.team.rows[i].links);
+}
+teamList.addEventListener("input", (e) => {
+  const el = e.target, f = el.dataset.plF;
+  if(!f) return;
+  const i = +el.dataset.plI, j = +el.dataset.plJ;
+  COLLECTIONS.team.rows[i].links[j][f] = el.value;
+  if(f === "kind"){                  // the label box and placeholder follow the kind
+    plinksRedraw(i);
+    teamList.querySelector(`[data-pl-i="${i}"][data-pl-j="${j}"][data-pl-f="kind"]`).focus();
+  }
+  markDirty("team");
+});
+teamList.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-pl-act]");
+  if(!b) return;
+  const i = +b.dataset.plI, links = COLLECTIONS.team.rows[i].links;
+  if(b.dataset.plAct === "add") links.push({ kind:"instagram", url:"", label:"" });
+  else links.splice(+b.dataset.plJ, 1);
+  plinksRedraw(i);
+  markDirty("team");
+});
+
 collection({
   key: "team",
   endpoint: "/api/admin/team",
@@ -1335,9 +1396,13 @@ collection({
   empty: { title:"No profiles yet", body:"Add a profile for each host or organiser." },
   savedMsg: "Saved ✓ The Who we are page is updated.",
 
-  blank: () => ({ id:null, name:"", role:"", bio:"", photo:"", active:1 }),
-  fromApi: (o) => ({ id:o.id, name:o.name||"", role:o.role||"", bio:o.bio||"", photo:o.photo||"", active:o.active?1:0 }),
-  payload: (p) => ({ name:p.name, role:p.role, bio:p.bio, photo:p.photo, active:p.active }),
+  blank: () => ({ id:null, name:"", role:"", bio:"", photo:"", links:[], active:1 }),
+  fromApi: (o) => ({ id:o.id, name:o.name||"", role:o.role||"", bio:o.bio||"", photo:o.photo||"",
+    links:(Array.isArray(o.links) ? o.links : []).map((l) => ({ kind:l.kind, url:(l.url||"").replace(/^mailto:/i, ""), label:l.label||"" })),
+    active:o.active?1:0 }),
+  // Rows left without an address are dropped rather than saved half-done.
+  payload: (p) => ({ name:p.name, role:p.role, bio:p.bio, photo:p.photo, active:p.active,
+    links:p.links.map((l) => ({ ...l, url:cleanUrl(l) })).filter((l) => l.url) }),
   confirmDelete: (p) => `Delete ${p.name||"this profile"}? It's removed from the site when you Save.`,
 
   validate(p){
@@ -1356,6 +1421,8 @@ collection({
     { key:"role", label:"Role", hint:"small line under the name", placeholder:"e.g. Founder" },
     { key:"photo", label:"Photo", hint:"upload or paste a URL — shown as a circle", type:"image", full:true, maxDim:800 },
     { key:"bio", label:"Bio", hint:"blank line between paragraphs", type:"textarea", full:true, placeholder:"A few lines about her…" },
+    { key:"links", label:"Links", hint:"optional — her socials, or any link with your own button text", type:"custom", full:true,
+      render:(a, row, o, c, i) => plinksHTML(i, row.links) },
     { key:"active", label:"Show this profile on the site", type:"check" },
   ],
 

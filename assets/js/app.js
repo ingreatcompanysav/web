@@ -16,8 +16,17 @@ const scriptWord = (word, xl) => `<span class="igc-script${xl ? ' igc-script--xl
 const ICONS = {
   instagram: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.2"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.05" fill="currentColor" stroke="none"/></svg>`,
   facebook: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.01 3.66 9.17 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.19 2.24.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.45 2.91h-2.33V22c4.78-.77 8.44-4.93 8.44-9.94Z"/></svg>`,
-  email: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="4.6" width="18.8" height="14.8" rx="2.6"/><path d="m3.6 7.4 8.4 5.8 8.4-5.8"/></svg>`
+  email: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="4.6" width="18.8" height="14.8" rx="2.6"/><path d="m3.6 7.4 8.4 5.8 8.4-5.8"/></svg>`,
+  tiktok: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16.6 2h-3.3v13.2a2.9 2.9 0 1 1-2.9-2.9c.3 0 .6 0 .9.1V9a6.3 6.3 0 1 0 5.3 6.2V8.6a7.9 7.9 0 0 0 4.4 1.4V6.7a4.4 4.4 0 0 1-4.4-4.7Z"/></svg>`,
+  linkedin: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9.75h4V21H3V9.75Zm6.5 0h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1V21h-4v-4.9c0-1.17-.02-2.68-1.63-2.68-1.64 0-1.89 1.28-1.89 2.6V21h-4V9.75Z"/></svg>`,
+  x: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M17.75 3h3.07l-6.7 7.66L22 21h-6.17l-4.83-6.32L5.47 21H2.4l7.17-8.2L2 3h6.33l4.37 5.78L17.75 3Zm-1.08 16.17h1.7L7.4 4.73H5.58l11.09 14.44Z"/></svg>`,
+  threads: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M17.5 7.5C16.4 4.9 14.4 3.5 12 3.5c-4.4 0-7 3.3-7 8.5s2.6 8.5 7 8.5c3.6 0 6.3-2.2 6.3-5.3 0-2.6-2-4.2-5.2-4.2-2.2 0-3.6 1.1-3.6 2.6 0 1.4 1.2 2.4 2.9 2.4 2.7 0 3.9-2.2 3.6-6.5"/></svg>`,
+  youtube: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-4.8 31 31 0 0 0-.5-4.8ZM9.75 15.02V8.98L15.5 12l-5.75 3.02Z"/></svg>`,
+  website: `<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4l-1.1 1.1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.1-1.1"/></svg>`
 };
+
+// What a screen reader hears for each icon-only profile link.
+const LINK_NAMES = { instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X', threads: 'Threads', youtube: 'YouTube', email: 'Email' };
 
 function sectionHeading({ eyebrow, title, script, description, center, size }) {
   const xl = size === 'xl';
@@ -409,10 +418,18 @@ function teamCard(p) {
     : `<span aria-hidden="true">${esc(initial)}</span>`;
   const bio = (p.bio || '').split(/\n\s*\n/).filter((t) => t.trim())
     .map((t) => `<p>${esc(t.trim())}</p>`).join('');
+  // Networks show as icons; a custom link shows its own button text.
+  const links = (p.links || []).map((l) => {
+    const ext = l.kind === 'email' ? '' : ' target="_blank" rel="noopener noreferrer"';
+    return l.kind === 'website'
+      ? `<a class="team-card__link team-card__link--text" href="${esc(l.url)}"${ext}>${ICONS.website}<span>${esc(l.label || 'Website')}</span></a>`
+      : `<a class="team-card__link" href="${esc(l.url)}"${ext} aria-label="${esc(l.kind === 'email' ? `Email ${p.name}` : `${p.name} on ${LINK_NAMES[l.kind]}`)}" title="${esc(LINK_NAMES[l.kind])}">${ICONS[l.kind] || ICONS.website}</a>`;
+  }).join('');
   return `<article class="team-card">
     <div class="team-card__photo">${photo}</div>
     <h3 class="team-card__name">${esc(p.name)}</h3>
     ${p.role ? `<div class="igc-eyebrow team-card__role">${esc(p.role)}</div>` : ''}
+    ${links ? `<div class="team-card__links">${links}</div>` : ''}
     ${bio ? `<div class="team-card__bio">${bio}</div>` : ''}
   </article>`;
 }
