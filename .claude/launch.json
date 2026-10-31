@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "web", "runtimeExecutable": "npx", "runtimeArgs": ["wrangler", "pages", "dev", ".", "--port", "8788", "--binding", "APPS_SCRIPT_TOKEN=localtest"], "port": 8788 }
+  ]
+}
