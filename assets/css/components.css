@@ -359,12 +359,16 @@
   border-radius:var(--radius-pill);border:1px solid currentColor;color:var(--text-muted);text-decoration:none;font-size:13px
 }
 .team-card__link:hover,.team-card__link:focus-visible{color:var(--brand-on-dark)}
-.team-card__link--text{padding:0 14px}
-.team-card__bio{max-width:var(--measure-prose)}
+.team-card__link--text{height:auto;min-height:40px;max-width:100%;padding:6px 14px;text-align:left}
+.team-card__link--text span{min-width:0;overflow-wrap:anywhere}
+.team-card__link svg{flex-shrink:0}
+.team-card__bio{max-width:var(--measure-prose);overflow-wrap:anywhere}
+/* No bio: the photo column centres in the row instead of leaving half of it empty. */
+.team-card:not(:has(.team-card__bio)){grid-template-columns:minmax(0,1fr)}
 .team-card__bio p{font-size:var(--text-body-m);line-height:var(--leading-body);color:var(--text-body);margin:var(--space-4) 0 0}
 .team-card__bio p:first-child{margin-top:0}
 @media (max-width:720px){
-  .team-card{grid-template-columns:1fr;gap:var(--space-6);padding:var(--space-6)}
+  .team-card{grid-template-columns:minmax(0,1fr);gap:var(--space-6);padding:var(--space-6)}
 }
 
 /* ---- Responsive (matches the live hand-tuned breakpoint) ------------------ */
@@ -411,6 +415,12 @@
   .skel-card--row .skel-card__body{padding:4px 6px 8px;justify-content:flex-start}
   .empty-state{padding:var(--space-8) var(--space-5)}
   .footer__bar{flex-direction:column;gap:var(--space-2)}
+}
+
+/* The smallest phones: three nav links and the logo only just fit. */
+@media (max-width:360px){
+  .nav__links{gap:var(--space-3)}
+  .nav__link{font-size:13px}
 }
 
 /* ---- RSVP modal ------------------------------------------------------------

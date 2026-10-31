@@ -414,10 +414,12 @@ function eventView(state) {
 // One row per host: photo, name, role and links on the left, the whole bio on
 // the right, so a host with no photo or links still lines up with the rest.
 function teamMember(p) {
-  const initial = (p.name || '').trim().charAt(0).toUpperCase();
+  // Whole first character, so an emoji-first name doesn't give half a glyph.
+  const initial = ([...(p.name || '').trim()][0] || '').toUpperCase();
   const photo = p.photo
-    ? `<img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy">`
+    ? `<img src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy" data-initial="${esc(initial)}">`
     : `<span aria-hidden="true">${esc(initial)}</span>`;
+  // Blank lines start paragraphs; a single line break (a typed list) stays one.
   const paras = (p.bio || '').split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean);
   // Networks show as icons; a custom link shows its own button text.
   const links = (p.links || []).map((l) => {
@@ -433,9 +435,20 @@ function teamMember(p) {
       ${p.role ? `<div class="igc-eyebrow team-card__role">${esc(p.role)}</div>` : ''}
       ${links ? `<div class="team-card__links">${links}</div>` : ''}
     </div>
-    ${paras.length ? `<div class="team-card__bio">${paras.map((t) => `<p>${esc(t)}</p>`).join('')}</div>` : ''}
+    ${paras.length ? `<div class="team-card__bio">${paras.map((t) => `<p>${esc(t).replace(/\s*\n\s*/g, '<br>')}</p>`).join('')}</div>` : ''}
   </article>`;
 }
+
+// A host photo that fails to load (a deleted upload) falls back to the
+// initial instead of spilling its alt text across the circle.
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (img.tagName !== 'IMG' || !img.dataset.initial) return;
+  const span = document.createElement('span');
+  span.setAttribute('aria-hidden', 'true');
+  span.textContent = img.dataset.initial;
+  img.replaceWith(span);
+}, true);
 
 function aboutView(state) {
   const a = state.about;
